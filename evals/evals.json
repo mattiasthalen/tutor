@@ -37,6 +37,24 @@
         "The Oracle's first line records generated_at and the source Export's newest Added watermark.",
         "Evals never touch the network: a tripwire scan finds the literal live Scryfall API host string in no eval or fixture file except the deliberate refresh script and the snapshot's provenance metadata."
       ]
+    },
+    {
+      "id": 2,
+      "prompt": "Generate the Oracle for a Collection home offline: run the oracle skill's build script over the realism Export with resolution pinned to the committed Scryfall snapshot, and verify the written oracle.jsonl, the tolerant-parse report, and the Name + Set code fallback — without any network call.",
+      "expected_output": "oracle.jsonl beside the Export — metadata line one carrying generated_at and the source Export's newest Added watermark, then one shape-exact JSON line per unique card name — plus a report counting malformed rows skipped and cards resolved, with legality data marked informational-only.",
+      "files": [
+        "skills/oracle/scripts/build_oracle.py",
+        "evals/fixtures/collections/real-collection.csv",
+        "evals/fixtures/scryfall/snapshot.jsonl",
+        "evals/fixtures/scryfall/oracle.jsonl"
+      ],
+      "expectations": [
+        "Run offline against the pinned snapshot, the oracle script writes the Oracle beside the realism Export: line one records generated_at plus the source Export's newest Added watermark, then one line per unique card name.",
+        "Every Oracle line the script writes is byte-identical to the fixture Oracle's line for the same card — the shape-exact record with four-Format legalities, the game_changer boolean, tokens excluded, basics included, multi-faced names flattened with //, and no UUIDs.",
+        "Malformed Export rows are skipped and reported with a count and examples, and a header missing the identity columns is the only hard failure.",
+        "An Export row whose Scryfall ID the snapshot no longer knows still resolves through its Name + Set code.",
+        "Run as /tutor:oracle in a Collection home, the skill's closing report surfaces the two staleness signals and marks Scryfall legality data informational-only, without implying Scryfall endorsement."
+      ]
     }
   ]
 }

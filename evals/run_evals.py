@@ -39,6 +39,7 @@ EVALS_DIR = pathlib.Path(__file__).resolve().parent
 # evals.json schema itself carries no name field; the workflow names runs).
 CASE_NAMES = {
     1: "harness-smoke",
+    2: "oracle-smoke",
 }
 
 
@@ -477,6 +478,175 @@ def check_offline_guarantee(_ctx):
     )
 
 
+# --- Oracle skill predicates (issue #51) ------------------------------------
+# The oracle-smoke case runs the skill's deterministic seam — the
+# build_oracle.py CLI — offline, resolution pinned to the committed snapshot.
+# Never the live API.
+
+ORACLE_SCRIPT = REPO_ROOT / "skills" / "oracle" / "scripts" / "build_oracle.py"
+
+
+def run_oracle_script(ctx, csv_text=None, home=None, expect_failure=False):
+    """Run build_oracle.py in a temp Collection home, offline.
+
+    With csv_text, that text is the Export; otherwise the realism Export is
+    copied in. Returns (completed_process, oracle_path, home_path).
+    """
+    import atexit
+    import shutil
+    import subprocess
+    import tempfile
+
+    if home is None:
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix="oracle-smoke-"))
+        atexit.register(shutil.rmtree, tmp, ignore_errors=True)
+    else:
+        tmp = home
+    export = tmp / "collection.csv"
+    if csv_text is None:
+        shutil.copy(ctx.path("collections/real-collection.csv"), export)
+    else:
+        export.write_text(csv_text, encoding="utf-8")
+    completed = subprocess.run(
+        [
+            sys.executable, str(ORACLE_SCRIPT),
+            "--collection", str(export),
+            "--snapshot", str(ctx.path("scryfall/snapshot.jsonl")),
+        ],
+        capture_output=True, text=True, timeout=300,
+    )
+    if completed.returncode != 0 and not expect_failure:
+        raise AssertionError(
+            f"build_oracle.py failed: {completed.stderr.strip()[:200]}"
+        )
+    return completed, tmp / "oracle.jsonl", tmp
+
+
+def first_snapshot_card(ctx, layout="normal"):
+    _, cards = load_snapshot(ctx)
+    return next(c for c in cards if c.get("layout") == layout)
+
+
+def check_oracle_skill_output(ctx):
+    _, oracle_path, _ = run_oracle_script(ctx)
+    if not oracle_path.is_file():
+        return False, "no oracle.jsonl written beside the Export"
+    lines = oracle_path.read_text(encoding="utf-8").splitlines()
+    meta = json.loads(lines[0]).get("oracle_meta", {})
+    snap_meta, _ = load_snapshot(ctx)
+    problems = []
+    if meta.get("generated_at") != snap_meta.get("captured_at"):
+        problems.append(
+            f"generated_at {meta.get('generated_at')} != snapshot captured_at "
+            f"{snap_meta.get('captured_at')} (offline runs pin freshness to the snapshot)"
+        )
+    newest = max(
+        (r.get("Added", "").strip() for r in ctx.read_manabox_csv("collections/real-collection.csv")),
+        default="",
+    )
+    if meta.get("source_export_newest_added") != newest:
+        problems.append(
+            f"watermark {meta.get('source_export_newest_added')} != the Export's newest Added {newest}"
+        )
+    names = [json.loads(line)["name"] for line in lines[1:]]
+    if not names or names != sorted(names) or len(names) != len(set(names)):
+        problems.append("body lines are not one sorted line per unique card name")
+    return not problems, "; ".join(problems) or (
+        f"oracle.jsonl beside the Export: {len(names)} unique names, "
+        f"generated_at {meta['generated_at']}, watermark {newest}"
+    )
+
+
+def check_oracle_skill_agreement(ctx):
+    _, oracle_path, _ = run_oracle_script(ctx)
+    written = oracle_path.read_text(encoding="utf-8").splitlines()[1:]
+    fixture_by_name = {}
+    for line in ctx.path("scryfall/oracle.jsonl").read_text(encoding="utf-8").splitlines()[1:]:
+        fixture_by_name[json.loads(line)["name"]] = line
+    problems = []
+    names = []
+    uuid = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+    for line in written:
+        name = json.loads(line)["name"]
+        names.append(name)
+        if fixture_by_name.get(name) != line:
+            problems.append(f"{name}: line differs from the fixture Oracle's")
+            break
+        if uuid.search(line):
+            problems.append(f"{name}: a UUID leaked into the Oracle")
+            break
+    _, snapshot_cards = load_snapshot(ctx)
+    token_only = {c["name"] for c in snapshot_cards if c.get("layout") in TOKEN_LAYOUTS} - {
+        c["name"] for c in snapshot_cards if c.get("layout") not in TOKEN_LAYOUTS
+    }
+    leaked = sorted(token_only & set(names))
+    if leaked:
+        problems.append(f"token rows leaked: {leaked[:3]}")
+    if "Forest" not in names:
+        problems.append("basic lands missing")
+    if not any(" // " in n for n in names):
+        problems.append("no multi-faced name flattened with //")
+    return not problems, "; ".join(problems) or (
+        f"all {len(written)} written lines byte-identical to the fixture Oracle; "
+        "tokens out, basics in, multi-faced names flattened"
+    )
+
+
+def check_oracle_skill_tolerance(ctx):
+    card = first_snapshot_card(ctx)
+    good = f"\"{card['name']}\",{card['set'].upper()},{card['id']},2026-08-02T09:00:00.000Z\n"
+    completed, oracle_path, _ = run_oracle_script(
+        ctx,
+        csv_text="Name,Set code,Scryfall ID,Added\n" + good + "Orphan,,,\n,,,\n",
+    )
+    problems = []
+    if "2 malformed rows skipped" not in completed.stdout:
+        problems.append("malformed rows not reported with a count")
+    if "row 3" not in completed.stdout:
+        problems.append("skipped-row examples missing from the report")
+    if card["name"] not in oracle_path.read_text(encoding="utf-8"):
+        problems.append("the well-formed row no longer resolves")
+
+    completed, oracle_path, _ = run_oracle_script(
+        ctx, csv_text="Binder Name,Quantity\nB,1\n", expect_failure=True,
+    )
+    if completed.returncode != 2 or "identity columns" not in completed.stderr:
+        problems.append(
+            f"a header without identity columns must hard-fail naming them "
+            f"(exit {completed.returncode}: {completed.stderr.strip()[:120]})"
+        )
+    elif oracle_path.exists():
+        problems.append("an Oracle was written despite the hard failure")
+    return not problems, "; ".join(problems) or (
+        "malformed rows skipped and reported with count and examples; "
+        "the identity-column header check is the one hard failure"
+    )
+
+
+def check_oracle_skill_fallback(ctx):
+    card = first_snapshot_card(ctx)
+    completed, oracle_path, _ = run_oracle_script(
+        ctx,
+        csv_text=(
+            "Name,Set code,Scryfall ID,Added\n"
+            f"\"{card['name']}\",{card['set'].upper()},"
+            "00000000-0000-0000-0000-000000000000,2026-08-02T09:00:00.000Z\n"
+        ),
+    )
+    problems = []
+    if "1 by Name + Set code fallback" not in completed.stdout:
+        problems.append("the fallback resolution is not reported")
+    names = [
+        json.loads(line)["name"]
+        for line in oracle_path.read_text(encoding="utf-8").splitlines()[1:]
+    ]
+    if names != [card["name"]]:
+        problems.append(f"expected [{card['name']}] via fallback, got {names}")
+    return not problems, "; ".join(problems) or (
+        f"an unknown Scryfall ID resolved through Name + Set code: {card['name']}"
+    )
+
+
 # --- Registry: exact expectation text -> fixed predicate --------------------
 # Keys are pinned verbatim to the strings in evals.json; editing a wording
 # means editing both, deliberately. Unregistered expectations are soft.
@@ -508,6 +678,14 @@ EXPECTATION_CHECKS = {
         check_oracle_watermark,
     "Evals never touch the network: a tripwire scan finds the literal live Scryfall API host string in no eval or fixture file except the deliberate refresh script and the snapshot's provenance metadata.":
         check_offline_guarantee,
+    "Run offline against the pinned snapshot, the oracle script writes the Oracle beside the realism Export: line one records generated_at plus the source Export's newest Added watermark, then one line per unique card name.":
+        check_oracle_skill_output,
+    "Every Oracle line the script writes is byte-identical to the fixture Oracle's line for the same card — the shape-exact record with four-Format legalities, the game_changer boolean, tokens excluded, basics included, multi-faced names flattened with //, and no UUIDs.":
+        check_oracle_skill_agreement,
+    "Malformed Export rows are skipped and reported with a count and examples, and a header missing the identity columns is the only hard failure.":
+        check_oracle_skill_tolerance,
+    "An Export row whose Scryfall ID the snapshot no longer knows still resolves through its Name + Set code.":
+        check_oracle_skill_fallback,
 }
 
 
