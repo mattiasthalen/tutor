@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Deliberately refresh the pinned Scryfall snapshot for the eval fixtures.
 
-This is the ONE place in the repo that talks to the live Scryfall API. Evals
-never run it — they read the committed ``snapshot.jsonl`` beside this script.
-Run it by hand when the fixture set changes or a deliberate data refresh is
-wanted, then commit the diff:
+This is the deliberate refresh path to the live Scryfall API; the only other
+live caller in the repo is the oracle skill's ``build_oracle.py`` in live
+mode. Evals touch neither live path — they read the committed
+``snapshot.jsonl`` beside this script. Run this refresh by hand when the
+fixture set changes or a deliberate data refresh is wanted, then commit the
+diff:
 
     python3 evals/fixtures/scryfall/refresh_snapshot.py
 
