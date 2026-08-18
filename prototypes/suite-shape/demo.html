@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE — Suite artifact shape (tutor)</title>
+<style>
+  :root { --accent:#6d5bd0; --red:#c0392b; --green:#1e8449; --ink:#1c1c28; --mut:#6b6b7b; --bg:#faf9f7; --card:#ffffff; --line:#e4e2dc; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width:1080px; margin:0 auto; padding:28px 20px 80px; }
+  h1 { font-size:1.45rem; margin:0 0 4px; } h2 { font-size:1.05rem; margin:26px 0 8px; } h3 { font-size:.95rem; margin:14px 0 6px; }
+  .tag { display:inline-block; font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; background:var(--accent); color:#fff; border-radius:4px; padding:2px 8px; margin-bottom:10px; }
+  .intro { color:var(--mut); max-width:70ch; }
+  .grid { display:grid; gap:14px; } .cols3 { grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .panel h3 { margin-top:0; }
+  table { border-collapse:collapse; width:100%; font-size:.85rem; }
+  th, td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mut); font-weight:600; }
+  button { font:inherit; font-size:.85rem; border:1px solid var(--line); background:#fff; border-radius:7px; padding:5px 11px; cursor:pointer; }
+  button:hover { border-color:var(--accent); color:var(--accent); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.on { background:#efecff; border-color:var(--accent); color:var(--accent); }
+  button.done { opacity:.45; }
+  .row { display:flex; flex-wrap:wrap; gap:7px; margin:8px 0; }
+  .verdict { font-size:1.1rem; font-weight:700; padding:8px 12px; border-radius:8px; display:inline-block; }
+  .verdict.red { background:#fdecea; color:var(--red); } .verdict.green { background:#e8f6ee; color:var(--green); }
+  pre { background:#232333; color:#e8e8f0; border-radius:10px; padding:14px 16px; overflow:auto; font-size:.8rem; line-height:1.45; }
+  pre .g { color:#7ddc9c; } pre .r { color:#ff8f80; font-weight:700; }
+  .cardbtn small { color:var(--mut); font-weight:400; }
+  .cardbtn.in { background:#e8f6ee; border-color:var(--green); }
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 0; }
+  .tabs button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .tabbody { border:1px solid var(--line); border-radius:0 10px 10px 10px; background:var(--card); padding:14px 16px; }
+  .steps { display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+  .note { color:var(--mut); font-size:.85rem; max-width:75ch; }
+  .decklist { font-size:.85rem; columns:2; }
+  .decklist div { break-inside:avoid; }
+  .pill { font-size:.72rem; border-radius:4px; padding:1px 6px; background:#f0eee9; margin-left:6px; color:var(--mut); }
+  .flex { display:flex; gap:18px; flex-wrap:wrap; } .flex > * { flex:1 1 320px; min-width:0; }
+  .warn { background:#fff7e0; border:1px solid #eadfb2; border-radius:8px; padding:8px 12px; font-size:.85rem; }
+</style>
+</head>
+<body>
+<main>
+  <span class="tag">Prototype — throwaway</span>
+  <h1>What shape should a Suite artifact take?</h1>
+  <p class="intro"><strong>The question:</strong> a deck test is a Suite of deterministic Checks generated at Build start from the Brief and the Format profile (ADR&nbsp;0003). What artifact form should that Suite take so it <em>reads</em> and <em>runs</em> in both runtimes — claude.ai chat (code-execution sandbox, pasted data, no repo) and Claude Code (files on disk)? Where do Role tags and profile targets live so an Upgrade re-run stays stable? And what does the red/green report look like as a Block? Everything below runs one real fixture: <em>Sunlit Flock</em>, a Kitchen&nbsp;20 white lifegain Pack built from genuine Foundations card data (Scryfall).</p>
+
+  <h2>The three candidate shapes</h2>
+  <div class="grid cols3">
+    <div class="panel"><h3>A — rendered checklist</h3>
+      <p class="note">Markdown the model walks, counting by hand. Runs anywhere — even with no sandbox — but every re-run trusts model arithmetic, and drift is invisible. <em>In this prototype A is generated from C</em> (<code>check_deck.py --render-checklist</code>), so it is a degraded view, not a source of truth.</p></div>
+    <div class="panel"><h3>B — bespoke generated script</h3>
+      <p class="note">A one-off script whose targets, Role tags, and thresholds are hardcoded (<code>candidate-b-bespoke.py</code>). Deterministic — but the Suite <em>is</em> code, so an Upgrade regenerates ~150 lines and hopes only the Brief-shaped parts changed.</p></div>
+    <div class="panel"><h3>C — declarative Suite + fixed runner</h3>
+      <p class="note">The Suite is data (<code>suite.yaml</code>): targets, quotas, Role tags, check ids. A fixed runner shipped with the skill (<code>check_deck.py</code>, stdlib-only) interprets any Suite. This page re-implements the same runner in JavaScript — two interpreters, one artifact.</p></div>
+  </div>
+
+  <h2>Where each shape runs</h2>
+  <div class="panel">
+  <table>
+    <tr><th></th><th>claude.ai chat, sandbox available</th><th>claude.ai chat, no sandbox</th><th>Claude Code</th><th>Upgrade re-run stability</th></tr>
+    <tr><td><strong>A checklist</strong></td><td>model walks it (sandbox unused)</td><td>model walks it, flags best-effort</td><td>model walks it</td><td>weak — counts re-done by hand each run</td></tr>
+    <tr><td><strong>B bespoke script</strong></td><td>runs — script pasted into sandbox</td><td>dead weight — model must read code to walk it</td><td>runs</td><td>weak — regeneration rewrites code</td></tr>
+    <tr><td><strong>C data + runner</strong></td><td>runs — runner is a skill asset, Suite + Deck pasted</td><td>model walks the same YAML (A is its render)</td><td>runs</td><td>strong — Suite file untouched; only a new Brief regenerates it</td></tr>
+  </table>
+  </div>
+
+  <h2>Drive it</h2>
+  <p class="note">The engine below is the JavaScript port of the runner, interpreting the very same Suite data. Click cards to add or remove them; the Suite re-runs after every click. <strong>Lens</strong> switches between what a sandbox run prints (the report Block) and what a no-sandbox chat walk looks like.</p>
+
+  <div class="row" id="stagebtns">
+    <button class="primary" data-stage="empty">Empty deck</button>
+    <button class="primary" data-stage="draft">Draft (planted violations)</button>
+    <button class="primary" data-stage="final">Final (green)</button>
+    <span style="flex:1"></span>
+    <button id="lensbtn"></button>
+  </div>
+
+  <div class="flex">
+    <div class="panel">
+      <h3>Current Deck <span id="deckcount" class="pill"></span></h3>
+      <div id="verdict"></div>
+      <div class="decklist" id="decklist"></div>
+      <h3>Card pool (click to add / remove)</h3>
+      <div class="row" id="pool"></div>
+      <div class="warn" id="collnote" style="display:none"></div>
+    </div>
+    <div class="panel">
+      <h3 id="reporthead"></h3>
+      <pre id="report"></pre>
+    </div>
+  </div>
+
+  <h2>Guided walkthroughs</h2>
+  <div class="tabs" id="scentabs"></div>
+  <div class="tabbody">
+    <p class="note" id="scendesc"></p>
+    <div class="steps" id="scensteps"></div>
+  </div>
+
+  <h2>The Suite artifact itself (candidate C source)</h2>
+  <p class="note">This exact text is what Build generates and what an Upgrade re-reads. Role tags sit in <code>roles:</code> (judgment recorded once), targets in <code>profile:</code>/<code>quotas:</code>/<code>constraints:</code> (profile snapshot + Brief overrides). The checklist in candidate A and the report headings are both rendered from it.</p>
+  <pre id="suiteyaml"></pre>
+</main>
+
+<script>
+// ---------- data (injected from the real prototype files) ----------
+const SUITE = {"suite": "Sunlit Flock", "format": "Kitchen 20", "generated": "2026-08-18", "brief": "mono-white lifegain Pack, teachable, nothing above 4 mana", "profile": {"deck_size": 20, "copy_limit_nonland": 1, "colors_max": 1, "multicolor_cards": 0, "rares_exact": 1, "rarity_ceiling": "rare", "lands_min": 8, "lands_max": 9, "nonbasic_allowed": ["Uncharted Haven"], "evergreen_keywords": ["Deathtouch", "Defender", "Double strike", "Enchant", "Equip", "First strike", "Flash", "Flying", "Haste", "Hexproof", "Indestructible", "Lifelink", "Menace", "Protection", "Prowess", "Reach", "Trample", "Vigilance", "Ward"], "curve_avg_max": 3.0, "early_nonland_cmc2_min": 4, "p_2plus_lands_in_7_min": 0.85}, "quotas": {"creature": 8, "theme": 6, "removal": 2, "draw": 1, "wincon": 1}, "constraints": {"cmc_max": 4}, "roles": {"Healer's Hawk": ["creature", "theme"], "Hinterland Sanctifier": ["creature", "theme"], "Leonin Vanguard": ["creature", "theme"], "Bishop's Soldier": ["creature", "theme"], "Ajani's Pridemate": ["creature", "theme", "wincon"], "Prideful Parent": ["creature"], "Inspiring Overseer": ["creature", "theme", "draw"], "Dazzling Angel": ["creature", "theme"], "Felidar Savior": ["creature", "theme"], "Exemplar of Light": ["creature", "theme", "wincon", "draw"], "Pacifism": ["removal"], "Banishing Light": ["removal"], "Giada, Font of Hope": ["creature"], "Sun-Blessed Healer": ["creature", "theme"], "Vanguard Seraph": ["creature", "theme"], "Moment of Triumph": ["theme"], "Felidar Cub": ["creature", "removal"], "Disenchant": ["removal"], "Crusader of Odric": ["creature", "wincon"], "Courageous Goblin": ["creature"]}, "checks": [{"id": "legality.size", "text": "Deck has exactly {deck_size} cards."}, {"id": "legality.singleton", "text": "No nonland card appears more than {copy_limit_nonland} time(s)."}, {"id": "legality.mono_color", "text": "Deck uses at most {colors_max} color and {multicolor_cards} multicolor cards."}, {"id": "legality.rare_count", "text": "Exactly {rares_exact} rare, nothing above {rarity_ceiling}."}, {"id": "legality.land_count", "text": "Between {lands_min} and {lands_max} lands."}, {"id": "legality.nonbasic_lands", "text": "Only nonbasic lands on the allowed list ({nonbasic_allowed})."}, {"id": "legality.evergreen", "text": "Every keyword on every card is on the evergreen list."}, {"id": "availability.in_collection", "text": "Every card (at its count) exists in the Collection."}, {"id": "manabase.color_coverage", "text": "Lands can produce every color the spells ask for."}, {"id": "curve.average", "text": "Average nonland mana value is at most {curve_avg_max}."}, {"id": "curve.early_plays", "text": "At least {early_nonland_cmc2_min} nonland cards at mana value 2 or less."}, {"id": "quota.creature", "text": "At least {quotas.creature} cards tagged creature."}, {"id": "quota.theme", "text": "At least {quotas.theme} cards tagged theme."}, {"id": "quota.removal", "text": "At least {quotas.removal} cards tagged removal."}, {"id": "quota.draw", "text": "At least {quotas.draw} cards tagged draw."}, {"id": "quota.wincon", "text": "At least {quotas.wincon} cards tagged wincon."}, {"id": "brief.cmc_max", "text": "No card above mana value {cmc_max}."}, {"id": "consistency.opening_lands", "text": "P(at least 2 lands in a 7-card opening hand) is at least {p_2plus_lands_in_7_min}."}]};
+const ORACLE = [{"name": "Plains", "cmc": 0.0, "colors": [], "type_line": "Basic Land \u2014 Plains", "rarity": "common", "keywords": [], "produced_mana": ["W"], "mana_cost": ""}, {"name": "Uncharted Haven", "cmc": 0.0, "colors": [], "type_line": "Land", "rarity": "common", "keywords": [], "produced_mana": ["B", "G", "R", "U", "W"], "mana_cost": ""}, {"name": "Exemplar of Light", "cmc": 4.0, "colors": ["W"], "type_line": "Creature \u2014 Angel", "rarity": "rare", "keywords": ["Flying"], "mana_cost": "{2}{W}{W}"}, {"name": "Giada, Font of Hope", "cmc": 2.0, "colors": ["W"], "type_line": "Legendary Creature \u2014 Angel", "rarity": "rare", "keywords": ["Flying", "Vigilance"], "produced_mana": ["W"], "mana_cost": "{1}{W}"}, {"name": "Healer's Hawk", "cmc": 1.0, "colors": ["W"], "type_line": "Creature \u2014 Bird", "rarity": "common", "keywords": ["Flying", "Lifelink"], "mana_cost": "{W}"}, {"name": "Hinterland Sanctifier", "cmc": 1.0, "colors": ["W"], "type_line": "Creature \u2014 Rabbit Cleric", "rarity": "common", "keywords": [], "mana_cost": "{W}"}, {"name": "Bishop's Soldier", "cmc": 2.0, "colors": ["W"], "type_line": "Creature \u2014 Vampire Soldier", "rarity": "common", "keywords": ["Lifelink"], "mana_cost": "{1}{W}"}, {"name": "Leonin Vanguard", "cmc": 1.0, "colors": ["W"], "type_line": "Creature \u2014 Cat Soldier", "rarity": "uncommon", "keywords": [], "mana_cost": "{W}"}, {"name": "Ajani's Pridemate", "cmc": 2.0, "colors": ["W"], "type_line": "Creature \u2014 Cat Soldier", "rarity": "uncommon", "keywords": [], "mana_cost": "{1}{W}"}, {"name": "Prideful Parent", "cmc": 3.0, "colors": ["W"], "type_line": "Creature \u2014 Cat", "rarity": "common", "keywords": ["Vigilance"], "mana_cost": "{2}{W}"}, {"name": "Inspiring Overseer", "cmc": 3.0, "colors": ["W"], "type_line": "Creature \u2014 Angel Cleric", "rarity": "common", "keywords": ["Flying"], "mana_cost": "{2}{W}"}, {"name": "Felidar Savior", "cmc": 4.0, "colors": ["W"], "type_line": "Creature \u2014 Cat Beast", "rarity": "common", "keywords": ["Lifelink"], "mana_cost": "{3}{W}"}, {"name": "Pacifism", "cmc": 2.0, "colors": ["W"], "type_line": "Enchantment \u2014 Aura", "rarity": "common", "keywords": ["Enchant"], "mana_cost": "{1}{W}"}, {"name": "Banishing Light", "cmc": 3.0, "colors": ["W"], "type_line": "Enchantment", "rarity": "common", "keywords": [], "mana_cost": "{2}{W}"}, {"name": "Dazzling Angel", "cmc": 3.0, "colors": ["W"], "type_line": "Creature \u2014 Angel", "rarity": "common", "keywords": ["Flying"], "mana_cost": "{2}{W}"}, {"name": "Vanguard Seraph", "cmc": 4.0, "colors": ["W"], "type_line": "Creature \u2014 Angel Warrior", "rarity": "common", "keywords": ["Flying", "Surveil"], "mana_cost": "{3}{W}"}, {"name": "Courageous Goblin", "cmc": 2.0, "colors": ["R"], "type_line": "Creature \u2014 Goblin", "rarity": "common", "keywords": [], "mana_cost": "{1}{R}"}, {"name": "Sun-Blessed Healer", "cmc": 2.0, "colors": ["W"], "type_line": "Creature \u2014 Human Cleric", "rarity": "uncommon", "keywords": ["Lifelink", "Kicker"], "mana_cost": "{1}{W}"}, {"name": "Moment of Triumph", "cmc": 1.0, "colors": ["W"], "type_line": "Instant", "rarity": "common", "keywords": [], "mana_cost": "{W}"}, {"name": "Felidar Cub", "cmc": 2.0, "colors": ["W"], "type_line": "Creature \u2014 Cat Beast", "rarity": "common", "keywords": [], "mana_cost": "{1}{W}"}, {"name": "Disenchant", "cmc": 2.0, "colors": ["W"], "type_line": "Instant", "rarity": "common", "keywords": [], "mana_cost": "{1}{W}"}, {"name": "Crusader of Odric", "cmc": 3.0, "colors": ["W"], "type_line": "Creature \u2014 Human Soldier", "rarity": "common", "keywords": [], "mana_cost": "{2}{W}"}];
+const COLLECTION_BASE = {"Plains": 20, "Uncharted Haven": 2, "Exemplar of Light": 1, "Giada, Font of Hope": 1, "Healer's Hawk": 2, "Hinterland Sanctifier": 1, "Leonin Vanguard": 1, "Bishop's Soldier": 1, "Ajani's Pridemate": 1, "Sun-Blessed Healer": 1, "Vanguard Seraph": 1, "Pacifism": 1, "Prideful Parent": 1, "Inspiring Overseer": 1, "Dazzling Angel": 1, "Banishing Light": 1, "Felidar Savior": 1, "Moment of Triumph": 1, "Felidar Cub": 1, "Disenchant": 1, "Crusader of Odric": 1};
+const SUITE_YAML = "# Suite Block \u2014 generated once at Build start from the Brief and the Kitchen 20 Format profile.\n# Data only. Nothing here re-decides at run time: targets are snapshotted, Role tags are\n# judgment recorded once. Re-running the Suite (including at Upgrade) reuses this file as-is;\n# only a changed Brief regenerates it.\n\nsuite: Sunlit Flock\nformat: Kitchen 20\ngenerated: 2026-08-18\nbrief: mono-white lifegain Pack, teachable, nothing above 4 mana\n\nprofile:\n  # Format-profile targets, snapshotted at generation. Brief overrides would land here too.\n  deck_size: 20\n  copy_limit_nonland: 1\n  colors_max: 1\n  multicolor_cards: 0\n  rares_exact: 1\n  rarity_ceiling: rare\n  lands_min: 8\n  lands_max: 9\n  nonbasic_allowed: [Uncharted Haven]\n  evergreen_keywords: [Deathtouch, Defender, Double strike, Enchant, Equip, First strike, Flash, Flying, Haste, Hexproof, Indestructible, Lifelink, Menace, Protection, Prowess, Reach, Trample, Vigilance, Ward]\n  curve_avg_max: 3.0\n  early_nonland_cmc2_min: 4\n  p_2plus_lands_in_7_min: 0.85\n\nquotas:\n  # Role quotas: profile defaults merged with Brief asks. One Check per line.\n  creature: 8\n  theme: 6\n  removal: 2\n  draw: 1\n  wincon: 1\n\nconstraints:\n  # Mechanical Brief constraints (judgment-free).\n  cmc_max: 4\n\nroles:\n  # Card -> Role tags. Tagging is judgment, done once at Build; counting is mechanical.\n  # Multi-tag: one card counts toward every Role it carries.\n  Healer's Hawk: [creature, theme]\n  Hinterland Sanctifier: [creature, theme]\n  Leonin Vanguard: [creature, theme]\n  Bishop's Soldier: [creature, theme]\n  Ajani's Pridemate: [creature, theme, wincon]\n  Prideful Parent: [creature]\n  Inspiring Overseer: [creature, theme, draw]\n  Dazzling Angel: [creature, theme]\n  Felidar Savior: [creature, theme]\n  Exemplar of Light: [creature, theme, wincon, draw]\n  Pacifism: [removal]\n  Banishing Light: [removal]\n  Giada, Font of Hope: [creature]\n  Sun-Blessed Healer: [creature, theme]\n  Vanguard Seraph: [creature, theme]\n  Moment of Triumph: [theme]\n  Felidar Cub: [creature, removal]\n  Disenchant: [removal]\n  Crusader of Odric: [creature, wincon]\n  Courageous Goblin: [creature]\n\nchecks:\n  # The Suite: id resolves to a fixed predicate in the runner (or a walkable\n  # sentence when no sandbox exists); every parameter lives above.\n  - id: legality.size\n    text: Deck has exactly {deck_size} cards.\n  - id: legality.singleton\n    text: No nonland card appears more than {copy_limit_nonland} time(s).\n  - id: legality.mono_color\n    text: Deck uses at most {colors_max} color and {multicolor_cards} multicolor cards.\n  - id: legality.rare_count\n    text: Exactly {rares_exact} rare, nothing above {rarity_ceiling}.\n  - id: legality.land_count\n    text: Between {lands_min} and {lands_max} lands.\n  - id: legality.nonbasic_lands\n    text: Only nonbasic lands on the allowed list ({nonbasic_allowed}).\n  - id: legality.evergreen\n    text: Every keyword on every card is on the evergreen list.\n  - id: availability.in_collection\n    text: Every card (at its count) exists in the Collection.\n  - id: manabase.color_coverage\n    text: Lands can produce every color the spells ask for.\n  - id: curve.average\n    text: Average nonland mana value is at most {curve_avg_max}.\n  - id: curve.early_plays\n    text: At least {early_nonland_cmc2_min} nonland cards at mana value 2 or less.\n  - id: quota.creature\n    text: At least {quotas.creature} cards tagged creature.\n  - id: quota.theme\n    text: At least {quotas.theme} cards tagged theme.\n  - id: quota.removal\n    text: At least {quotas.removal} cards tagged removal.\n  - id: quota.draw\n    text: At least {quotas.draw} cards tagged draw.\n  - id: quota.wincon\n    text: At least {quotas.wincon} cards tagged wincon.\n  - id: brief.cmc_max\n    text: No card above mana value {cmc_max}.\n  - id: consistency.opening_lands\n    text: P(at least 2 lands in a 7-card opening hand) is at least {p_2plus_lands_in_7_min}.\n";
+
+// ---------- pure engine: JS port of check_deck.py (no DOM in here) ----------
+const Engine = (() => {
+  const byName = Object.fromEntries(ORACLE.map(c => [c.name, c]));
+  const isLand = c => c.type_line.includes("Land");
+  const isBasic = c => c.type_line.startsWith("Basic Land");
+  const comb = (n, k) => { if (k < 0 || k > n) return 0; let r = 1; for (let i = 0; i < k; i++) r = r * (n - i) / (i + 1); return Math.round(r); };
+
+  function run(suite, deck, collection) {
+    const p = suite.profile, q = suite.quotas, cons = suite.constraints, roles = suite.roles;
+    const expand = [];
+    for (const [n, qty] of Object.entries(deck)) for (let i = 0; i < qty; i++) expand.push([n, byName[n]]);
+    const nonland = expand.filter(([n, c]) => c && !isLand(c));
+    const lands = expand.filter(([n, c]) => c && isLand(c));
+    const res = {};
+    const check = (id, ok, detail) => { res[id] = { ok: !!ok, detail }; };
+    const total = expand.length;
+
+    check("legality.size", total === p.deck_size, `${total} cards, need exactly ${p.deck_size}`);
+    const dupes = [...new Set(nonland.filter(([n]) => nonland.filter(([m]) => m === n).length > p.copy_limit_nonland).map(([n]) => n))].sort();
+    check("legality.singleton", !dupes.length, dupes.length ? `over copy limit: ${dupes.join(", ")}` : "no nonland above 1 copy");
+    const colors = [...new Set(expand.flatMap(([n, c]) => c ? (c.colors || []) : []))].sort();
+    const multi = [...new Set(expand.filter(([n, c]) => c && (c.colors || []).length > 1).map(([n]) => n))];
+    check("legality.mono_color", colors.length <= p.colors_max && multi.length <= p.multicolor_cards, `colors [${colors.join(", ") || "none"}], multicolor ${multi.join(", ") || "none"}`);
+    const rares = [...new Set(expand.filter(([n, c]) => c && c.rarity === "rare").map(([n]) => n))].sort();
+    check("legality.rare_count", rares.length === p.rares_exact, `${rares.length} rare(s): ${rares.join(", ") || "none"}`);
+    check("legality.land_count", lands.length >= p.lands_min && lands.length <= p.lands_max, `${lands.length} lands, need ${p.lands_min}-${p.lands_max}`);
+    const badNb = [...new Set(lands.filter(([n, c]) => !isBasic(c) && !p.nonbasic_allowed.includes(n)).map(([n]) => n))];
+    check("legality.nonbasic_lands", !badNb.length, badNb.length ? `not allowed: ${badNb.join(", ")}` : "nonbasics all on the allowed list");
+    const ever = new Set(p.evergreen_keywords);
+    const off = [...new Set(expand.filter(([n, c]) => c && (c.keywords || []).some(k => !ever.has(k))).map(([n, c]) => `${n} (${(c.keywords || []).filter(k => !ever.has(k)).join(", ")})`))].sort();
+    check("legality.evergreen", !off.length, off.length ? `non-evergreen: ${off.join("; ")}` : "all keywords evergreen");
+    const short = Object.entries(deck).filter(([n, k]) => (collection[n] || 0) < k).map(([n, k]) => `${n} (need ${k}, own ${collection[n] || 0})`).sort();
+    check("availability.in_collection", !short.length, short.length ? `missing: ${short.join("; ")}` : "every card owned");
+    const spell = [...new Set(nonland.flatMap(([n, c]) => c.colors || []))].sort();
+    const prod = new Set(lands.flatMap(([n, c]) => c.produced_mana || []));
+    check("manabase.color_coverage", spell.every(x => prod.has(x)) && (!spell.length || lands.length), `spells need [${spell.join(", ") || "nothing"}], lands make [${[...prod].sort().join(", ") || "nothing"}]`);
+    if (nonland.length) {
+      const avg = nonland.reduce((s, [n, c]) => s + c.cmc, 0) / nonland.length;
+      check("curve.average", avg <= p.curve_avg_max, `average ${avg.toFixed(2)}, max ${p.curve_avg_max}`);
+    } else check("curve.average", false, "no nonland cards yet");
+    const early = nonland.filter(([n, c]) => c.cmc <= 2).length;
+    check("curve.early_plays", early >= p.early_nonland_cmc2_min, `${early} nonland cards at mana value <=2, need ${p.early_nonland_cmc2_min}`);
+    for (const [tag, target] of Object.entries(q)) {
+      const k = expand.filter(([n]) => (roles[n] || []).includes(tag)).length;
+      check(`quota.${tag}`, k >= target, `${k} tagged ${tag}, need ${target}`);
+    }
+    const heavy = [...new Set(expand.filter(([n, c]) => c && c.cmc > cons.cmc_max).map(([n]) => n))].sort();
+    check("brief.cmc_max", !heavy.length, heavy.length ? `above ${cons.cmc_max}: ${heavy.join(", ")}` : "nothing above the cap");
+    if (total >= 7) {
+      const K = lands.length;
+      const pge2 = 1 - (comb(K, 0) * comb(total - K, 7) + comb(K, 1) * comb(total - K, 6)) / comb(total, 7);
+      check("consistency.opening_lands", pge2 >= p.p_2plus_lands_in_7_min, `P(>=2 lands in 7) = ${pge2.toFixed(2)}, need ${p.p_2plus_lands_in_7_min}`);
+    } else check("consistency.opening_lands", false, `deck has ${total} cards, cannot draw 7`);
+    return res;
+  }
+  return { run, byName, isLand };
+})();
+
+// ---------- page shell (throwaway) ----------
+const STAGES = {
+  empty: {},
+  draft: { "Exemplar of Light":1, "Giada, Font of Hope":1, "Healer's Hawk":2, "Hinterland Sanctifier":1,
+           "Bishop's Soldier":1, "Ajani's Pridemate":1, "Sun-Blessed Healer":1, "Courageous Goblin":1,
+           "Pacifism":1, "Prideful Parent":1, "Inspiring Overseer":1, "Dazzling Angel":1, "Felidar Savior":1,
+           "Uncharted Haven":1, "Plains":6 },
+  final: { "Exemplar of Light":1, "Healer's Hawk":1, "Hinterland Sanctifier":1, "Leonin Vanguard":1,
+           "Bishop's Soldier":1, "Ajani's Pridemate":1, "Pacifism":1, "Prideful Parent":1,
+           "Inspiring Overseer":1, "Dazzling Angel":1, "Banishing Light":1, "Felidar Savior":1,
+           "Uncharted Haven":1, "Plains":7 },
+};
+let deck = {};
+let collection = { ...COLLECTION_BASE };
+let lens = "run";   // "run" | "walk"
+
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function setDeck(d) { deck = { ...d }; render(); }
+function addCard(n, k = 1) { deck[n] = (deck[n] || 0) + k; if (deck[n] <= 0) delete deck[n]; render(); }
+
+function reportText(res) {
+  const ids = SUITE.checks.map(c => c.id);
+  const red = ids.filter(id => !res[id].ok).length;
+  const head = [
+    `suite: ${SUITE.suite}`, `deck: Sunlit Flock`, `format: ${SUITE.format}`, `date: 2026-08-18`,
+    `oracle: data-backed (${ORACLE.length} cards)`,
+    `verdict: ${red ? "red" : "green"} — ${red} red / ${ids.length - red} green`, ``,
+  ];
+  const lines = ids.map(id => `${res[id].ok ? '<span class="g">green</span>' : '<span class="r">red  </span>'} ${id} — ${esc(res[id].detail)}`);
+  return head.map(esc).join("\n") + lines.join("\n");
+}
+
+function walkText(res) {
+  const params = { ...SUITE.profile, ...SUITE.constraints };
+  for (const [k, v] of Object.entries(SUITE.quotas)) params["quotas." + k] = v;
+  const sub = t => t.replace(/\{([\w.]+)\}/g, (m, k) => Array.isArray(params[k]) ? params[k].join(", ") : (params[k] ?? m));
+  const lines = SUITE.checks.map(c => {
+    const r = res[c.id];
+    return `- [${r.ok ? "x" : " "}] ${r.ok ? '<span class="g">green</span>' : '<span class="r">red</span>'} \`${c.id}\` — ${esc(sub(c.text))}\n      evidence: ${esc(r.detail)}`;
+  });
+  return esc(`# Suite checklist walk: ${SUITE.suite} (${SUITE.format})\n# no sandbox — model counted by hand against the Oracle\n\n`) + lines.join("\n");
+}
+
+function render() {
+  const res = Engine.run(SUITE, deck, collection);
+  const ids = SUITE.checks.map(c => c.id);
+  const red = ids.filter(id => !res[id].ok).length;
+  const total = Object.values(deck).reduce((a, b) => a + b, 0);
+  $("deckcount").textContent = `${total} cards`;
+  $("verdict").innerHTML = `<span class="verdict ${red ? "red" : "green"}">${red ? red + " red" : "ALL GREEN"} / ${ids.length} Checks</span>`;
+  const entries = Object.entries(deck).sort((a, b) => {
+    const la = Engine.isLand(Engine.byName[a[0]] || { type_line: "" }), lb = Engine.isLand(Engine.byName[b[0]] || { type_line: "" });
+    return la === lb ? a[0].localeCompare(b[0]) : la - lb;
+  });
+  $("decklist").innerHTML = entries.map(([n, q]) => `<div>${q} ${esc(n)}${(SUITE.roles[n] || []).map(r => `<span class="pill">${r}</span>`).join("")}</div>`).join("") || "<div class='note'>(empty — every quota red, exactly as Build starts)</div>";
+  $("pool").innerHTML = ORACLE.map(c => {
+    const inDeck = deck[c.name];
+    return `<button class="cardbtn ${inDeck ? "in" : ""}" onclick="addCard('${c.name.replace(/'/g, "\\'")}', ${inDeck && !c.type_line.startsWith("Basic") ? -1 : 1})">${inDeck ? "− " : "+ "}${esc(c.name)} <small>${esc(c.mana_cost || c.type_line.replace("Basic Land — ", ""))}</small></button>`;
+  }).join("");
+  $("reporthead").textContent = lens === "run" ? "Report Block — what the sandbox run prints" : "Checklist walk — what a no-sandbox chat shows";
+  $("lensbtn").textContent = lens === "run" ? "Lens: sandbox run ▸ switch to no-sandbox walk" : "Lens: no-sandbox walk ▸ switch to sandbox run";
+  $("report").innerHTML = lens === "run" ? reportText(res) : walkText(res);
+  $("collnote").style.display = collection["Banishing Light"] ? "none" : "";
+  $("collnote").textContent = "Collection changed: Banishing Light is gone (sold). The Suite file itself is untouched.";
+}
+
+// ---------- walkthroughs ----------
+const SCENARIOS = [
+  { name: "Build, test-first",
+    desc: "The TDD loop from ADR 0003: generate the Suite before any card is picked, watch red drive card choice. Note step 1 — the empty Deck is NOT all red: vacuous Checks (singleton, evergreen, availability…) pass with zero cards. A real finding for the decision.",
+    steps: [
+      { label: "1. Run the Suite on the empty Deck", act: () => setDeck(STAGES.empty) },
+      { label: "2. Add the mana base: 7 Plains + Uncharted Haven", act: () => { setDeck({ Plains: 7, "Uncharted Haven": 1 }); } },
+      { label: "3. Add the lifegain core (5 one- and two-drops)", act: () => { for (const n of ["Healer's Hawk", "Hinterland Sanctifier", "Leonin Vanguard", "Bishop's Soldier", "Ajani's Pridemate"]) deck[n] = 1; render(); } },
+      { label: "4. Add payoffs and fliers (incl. the one rare)", act: () => { for (const n of ["Inspiring Overseer", "Dazzling Angel", "Felidar Savior", "Exemplar of Light"]) deck[n] = 1; render(); } },
+      { label: "5. Add removal: Pacifism + Banishing Light", act: () => { deck["Pacifism"] = 1; deck["Banishing Light"] = 1; render(); } },
+      { label: "6. Add Prideful Parent — the 20th card", act: () => { deck["Prideful Parent"] = 1; render(); } },
+    ] },
+  { name: "Rule-break attempts",
+    desc: "Each step swaps one legal card for one that should be illegal, so a single Check goes red at a time. The last swap is bait: Vanguard Seraph carries Surveil, which the profile's evergreen list excludes — whether that list should include Surveil is exactly the kind of judgment that lives in profile data, not in the runner.",
+    steps: [
+      { label: "1. Swap Prideful Parent → Courageous Goblin (red card, unowned)", act: () => { setDeck(STAGES.final); delete deck["Prideful Parent"]; deck["Courageous Goblin"] = 1; render(); } },
+      { label: "2. Undo; swap Dazzling Angel → a second Healer's Hawk", act: () => { setDeck(STAGES.final); delete deck["Dazzling Angel"]; deck["Healer's Hawk"] = 2; render(); } },
+      { label: "3. Undo; swap Bishop's Soldier → Sun-Blessed Healer (Kicker)", act: () => { setDeck(STAGES.final); delete deck["Bishop's Soldier"]; deck["Sun-Blessed Healer"] = 1; render(); } },
+      { label: "4. Undo; swap Banishing Light → Vanguard Seraph (Surveil — evergreen?)", act: () => { setDeck(STAGES.final); delete deck["Banishing Light"]; deck["Vanguard Seraph"] = 1; render(); } },
+      { label: "5. Restore the green Deck", act: () => setDeck(STAGES.final) },
+    ] },
+  { name: "Upgrade re-run",
+    desc: "An Upgrade re-runs the SAME Suite file against a fresh Export — targets and Role tags do not move. Only cards new to the pool need tagging (judgment runs once per new card, not once per run).",
+    steps: [
+      { label: "1. Start from the green Deck", act: () => { collection = { ...COLLECTION_BASE }; setDeck(STAGES.final); } },
+      { label: "2. New Export arrives: Banishing Light was sold", act: () => { collection = { ...COLLECTION_BASE }; delete collection["Banishing Light"]; render(); } },
+      { label: "3. Swap Banishing Light → Disenchant (already tagged removal)", act: () => { delete deck["Banishing Light"]; deck["Disenchant"] = 1; render(); } },
+      { label: "4. Restore the original Collection", act: () => { collection = { ...COLLECTION_BASE }; render(); } },
+    ] },
+];
+let scen = 0;
+function drawScenarios() {
+  $("scentabs").innerHTML = SCENARIOS.map((s, i) => `<button class="${i === scen ? "active" : ""}" onclick="pickScen(${i})">${s.name}</button>`).join("");
+  $("scendesc").textContent = SCENARIOS[scen].desc;
+  $("scensteps").innerHTML = SCENARIOS[scen].steps.map((st, i) => `<button id="step${i}" onclick="runStep(${i})">${st.label}</button>`).join("");
+}
+function pickScen(i) { scen = i; setDeck(STAGES.empty); collection = { ...COLLECTION_BASE }; drawScenarios(); render(); }
+function runStep(i) { SCENARIOS[scen].steps[i].act(); for (let j = 0; j <= i; j++) $("step" + j).classList.add("done"); }
+
+document.querySelectorAll("#stagebtns [data-stage]").forEach(b => b.onclick = () => { collection = { ...COLLECTION_BASE }; setDeck(STAGES[b.dataset.stage]); });
+$("lensbtn").onclick = () => { lens = lens === "run" ? "walk" : "run"; render(); };
+$("suiteyaml").textContent = SUITE_YAML;
+setDeck(STAGES.draft);
+drawScenarios();
+</script>
+</body>
+</html>
