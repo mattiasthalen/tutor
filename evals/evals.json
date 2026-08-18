@@ -88,6 +88,34 @@
         "The conversation asks the Export/Oracle freshness question exactly once.",
         "A pasted Export is always accepted and beats the file on conflict: the diff — rows added, removed, quantities changed — is reported, then the paste is worked from."
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "Start a Build from the fixture Tatyova Brief in a Collection home: generate the declarative Suite from the Brief and the Commander Format profile before any card is picked, and show it honestly red on the empty Deck through the fixed runner.",
+      "expected_output": "The committed fixture Suite — snapshotted Commander targets, the quota table over the global Role vocabulary, mechanical Brief constraints under provenance comments, an empty Role-tag section — reproduced byte-identical by the generator, plus the runner's red empty-Deck report matching the committed reference: every size, mana-base-count, curve, and quota Check red, constraint-shaped Checks vacuously green, both written to the Collection home.",
+      "files": [
+        "skills/build/SKILL.md",
+        "commands/build.md",
+        "skills/build/scripts/generate_suite.py",
+        "skills/build/profiles/commander.yaml",
+        "skills/suite-runner/scripts/check_deck.py",
+        "evals/fixtures/briefs/commander-tatyova-landfall.txt",
+        "evals/fixtures/scryfall/oracle.jsonl",
+        "evals/fixtures/collections/real-collection.csv",
+        "evals/fixtures/build/tatyova-landfall.suite.yaml",
+        "evals/fixtures/build/tatyova-empty-deck.txt",
+        "evals/fixtures/build/tatyova-empty-report.txt"
+      ],
+      "expectations": [
+        "The Commander Format profile is first-class declarative data: deck size 100, singleton copy limit, lands, curve, and consistency check targets, per-bracket Game Changers limits 0 / 0 / 3 / unlimited / unlimited for Power 1-5, a banlist parameter, and judgment-flavored Role guidance.",
+        "Run over the fixture Tatyova Brief, the Commander profile, and the fixture Oracle, the Suite generator reproduces the committed fixture Suite byte-identical — declarative data, never code.",
+        "The fixture Suite carries every generated Check class — Legality, Availability, Mana base, Curve, Quotas over the global Role vocabulary, mechanical Brief constraints, hypergeometric Consistency — with no budget class, targets snapshotted from the profile, Brief-set values under brief: provenance comments, and an empty roles: section because no card is picked yet.",
+        "Through the unmodified runner, the empty fixture Deck reports byte-identical to the committed reference: every size, mana-base-count, curve, and quota Check red, the singleton, color identity, banlist, Game Changers, and availability Checks vacuously green, exit code red.",
+        "The /tutor:build command is a thin wrapper handing off to the build skill, whose metadata.version matches the plugin manifest's pinned version.",
+        "The build skill's text pins the front half: the Suite and its report written to the Collection home, the offer to generate an absent Oracle via /tutor:oracle when network allows, a pasted Export or Block beating the file, a refused constraint going back to the Brief, and no card picked before the Suite exists.",
+        "Run live, /tutor:build walks a Collection home from Brief to written Suite and red report, explaining vacuous green honestly.",
+        "Role tagging judgment is recorded once per card in the Suite's roles: section as Build fills the Deck, and quota Checks count those tags mechanically."
+      ]
     }
   ]
 }
