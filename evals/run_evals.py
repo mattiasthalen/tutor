@@ -90,9 +90,23 @@ def synthetic_rows(ctx):
             yield rel, r
 
 
+def real_rows(ctx):
+    return ctx.read_manabox_csv("collections/real-collection.csv")
+
+
+# The three gap predicates below grade both halves of "cover what the real
+# Export lacks": the synthetics carry the value AND the real Export still
+# lacks it — if the real Export ever gains one, the synthetic's reason to
+# exist is gone and the run goes red instead of silently hollow.
+
 def check_etched_foil(ctx):
     hits = [f"{rel}: {r['Name']}" for rel, r in synthetic_rows(ctx) if r["Foil"] == "etched"]
-    return bool(hits), f"etched Foil rows: {hits or 'none'}"
+    gained = sorted({r["Name"] for r in real_rows(ctx) if r["Foil"] == "etched"})
+    return bool(hits) and not gained, (
+        f"etched Foil rows: {hits or 'none'}; "
+        + (f"real Export gained etched ({gained[:3]}) — no longer a gap" if gained
+           else "real Export still lacks etched")
+    )
 
 
 def check_non_english_languages(ctx):
@@ -101,7 +115,12 @@ def check_non_english_languages(ctx):
         if r["Language"] != "en":
             langs.setdefault(r["Language"], f"{rel}: {r['Name']}")
     missing = {"ja", "zhs"} - set(langs)
-    return not missing, f"non-English rows: {langs or 'none'}; missing: {sorted(missing) or 'none'}"
+    gained = sorted(set(langs) & {r["Language"] for r in real_rows(ctx)})
+    return not missing and not gained, (
+        f"non-English rows: {langs or 'none'}; missing: {sorted(missing) or 'none'}; "
+        + (f"real Export gained {gained} — no longer a gap" if gained
+           else "real Export still lacks them")
+    )
 
 
 def check_promo_collector_numbers(ctx):
@@ -110,7 +129,15 @@ def check_promo_collector_numbers(ctx):
         for rel, r in synthetic_rows(ctx)
         if not r["Collector number"].isdigit()
     ]
-    return bool(hits), f"promo collector numbers: {hits or 'none'}"
+    gained = sorted({
+        r["Collector number"] for r in real_rows(ctx)
+        if not r["Collector number"].isdigit()
+    })
+    return bool(hits) and not gained, (
+        f"promo collector numbers: {hits or 'none'}; "
+        + (f"real Export gained non-digit numbers ({gained[:3]}) — no longer a gap" if gained
+           else "real Export still lacks them")
+    )
 
 
 def check_per_format_pools(ctx):
@@ -143,6 +170,10 @@ BRIEF_KEYS = {
 BOARD_HEADERS = {"// Commander", "// Mainboard", "// Sideboard", "// Maybeboard"}
 BASIC_NAMES = {"Plains", "Island", "Swamp", "Forest", "Mountain", "Wastes"}
 
+# Deck-line grammar. fixtures/scryfall/refresh_snapshot.py carries a verbatim
+# copy of these two regexes (kept in lockstep by hand, not imported), so the
+# snapshot coverage check reads the fixtures with the same grammar the refresh
+# used. Edit them together.
 PINNED_LINE = re.compile(
     r"^(\d+) (.+) \(([A-Z0-9]{2,6})\) (\S+)(?: // (.+))?$"
 )
@@ -261,7 +292,12 @@ def load_snapshot(ctx):
 
 
 def fixture_card_references(ctx):
-    """Every card reference the fixtures make, independently re-gathered.
+    """Every card reference the fixtures make, re-read from the fixture files.
+
+    Not an independent parse: this walks the same files with the same
+    PINNED_LINE/BARE_LINE grammar refresh_snapshot.py copies, so the coverage
+    check is a fixture-vs-snapshot drift tripwire — a shared grammar bug
+    would blind both sides.
 
     Returns (ids, pins, names): Scryfall IDs from Collection CSVs,
     (set, collector number) pins and bare names from Deck texts.
@@ -410,7 +446,7 @@ def check_oracle_watermark(ctx):
     )
 
 
-SCRYFALL_HOST = "api." + "scryfall.com"  # split so this file stays off the list
+SCRYFALL_HOST = "api." + "scryfall.com"  # the tripwire literal, split so this file stays out of its own scan
 NETWORK_ALLOWED = {
     "fixtures/scryfall/refresh_snapshot.py",  # the one deliberate network path
     "fixtures/scryfall/snapshot.jsonl",       # records api_host as provenance
@@ -418,6 +454,9 @@ NETWORK_ALLOWED = {
 
 
 def check_offline_guarantee(_ctx):
+    """Tripwire, not proof: scan the eval tree's text files for the literal
+    host string. A file that reaches Scryfall without spelling the host out
+    (or spelling it in pieces, as this one does) would slip past."""
     offenders = []
     for path in sorted(EVALS_DIR.rglob("*")):
         if not path.is_file() or "results" in path.parts:
@@ -432,9 +471,9 @@ def check_offline_guarantee(_ctx):
         if SCRYFALL_HOST in text:
             offenders.append(relative)
     return not offenders, (
-        f"files reaching for the live Scryfall host: {offenders}"
+        f"files carrying the literal Scryfall host string: {offenders}"
         if offenders
-        else f"only {sorted(NETWORK_ALLOWED)} name the Scryfall host; every eval path is offline"
+        else f"the literal Scryfall host string appears only in {sorted(NETWORK_ALLOWED)}"
     )
 
 
@@ -467,7 +506,7 @@ EXPECTATION_CHECKS = {
         check_oracle_shape,
     "The Oracle's first line records generated_at and the source Export's newest Added watermark.":
         check_oracle_watermark,
-    "Evals never touch the network: no eval or fixture file references the live Scryfall API host except the deliberate refresh script and the snapshot's provenance metadata.":
+    "Evals never touch the network: a tripwire scan finds the literal live Scryfall API host string in no eval or fixture file except the deliberate refresh script and the snapshot's provenance metadata.":
         check_offline_guarantee,
 }
 

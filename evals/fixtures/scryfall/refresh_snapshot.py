@@ -54,6 +54,9 @@ DECK_TEXTS = sorted((FIXTURES / "decks").glob("*.txt")) + [
     FIXTURES / "collections" / "real-deck.txt"
 ]
 
+# Deck-line grammar — a verbatim copy of run_evals.py's PINNED_LINE/BARE_LINE
+# (kept in lockstep by hand, not imported), so the harness's coverage check
+# reads the fixtures with the same grammar this refresh used. Edit together.
 PINNED_LINE = re.compile(r"^(\d+) (.+) \(([A-Z0-9]{2,6})\) (\S+)(?: // (.+))?$")
 BARE_LINE = re.compile(r"^(\d+) (.+?)(?: // (.+))?$")
 
