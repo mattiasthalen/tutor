@@ -145,12 +145,22 @@ def is_land(card):
 def is_basic(card):
     return card.get("type_line", "").startswith("Basic Land")
 
+def mana_value(card):
+    """Mana value of a card, under either Oracle vocabulary: `cmc` (the
+    suite-shape prototype's fixtures) or `mana_value` (the Collection-home
+    Oracle of ADR 0007, issue #48)."""
+    return card["cmc"] if "cmc" in card else card["mana_value"]
+
 RARITY_ORDER = {"common": 0, "uncommon": 1, "rare": 2, "mythic": 3}
 
 # ---------- the Checks (fixed predicates; every parameter comes from the Suite) ----------
 
 def run_checks(suite, deck_cards, oracle, collection):
     p, q, cons, roles = suite["profile"], suite["quotas"], suite["constraints"], suite["roles"]
+    # The Suite's check list decides what runs (ADR 0005: check ids resolve to
+    # fixed predicates) — a Suite carries only the parameters its own checks
+    # read, so nothing below touches a parameter its check never listed.
+    wanted = {c["id"] for c in suite["checks"]}
     expand = []
     unknown = []
     for qty, nm in deck_cards:
@@ -170,63 +180,118 @@ def run_checks(suite, deck_cards, oracle, collection):
         results[cid] = (bool(ok), detail)
 
     total = len(expand)
-    check("legality.size", total == p["deck_size"], f"{total} cards, need exactly {p['deck_size']}")
+    if "legality.size" in wanted:
+        check("legality.size", total == p["deck_size"], f"{total} cards, need exactly {p['deck_size']}")
 
-    dupes = sorted({n for n, c in nonland if sum(1 for m, _ in nonland if m == n) > p["copy_limit_nonland"]})
-    check("legality.singleton", not dupes, "no nonland above 1 copy" if not dupes else f"over copy limit: {', '.join(dupes)}")
+    if "legality.singleton" in wanted:
+        dupes = sorted({n for n, c in nonland if sum(1 for m, _ in nonland if m == n) > p["copy_limit_nonland"]})
+        check("legality.singleton", not dupes, "no nonland above 1 copy" if not dupes else f"over copy limit: {', '.join(dupes)}")
 
-    colors = sorted({col for n, c in expand if c for col in c.get("colors", [])})
-    multi = sorted({n for n, c in expand if c and len(c.get("colors", [])) > 1})
-    ok = len(colors) <= p["colors_max"] and len(multi) <= p["multicolor_cards"]
-    check("legality.mono_color", ok, f"colors {colors or ['none']}, multicolor {multi or 'none'}")
+    if "legality.mono_color" in wanted:
+        colors = sorted({col for n, c in expand if c for col in c.get("colors", [])})
+        multi = sorted({n for n, c in expand if c and len(c.get("colors", [])) > 1})
+        ok = len(colors) <= p["colors_max"] and len(multi) <= p["multicolor_cards"]
+        check("legality.mono_color", ok, f"colors {colors or ['none']}, multicolor {multi or 'none'}")
 
-    rares = sorted({n for n, c in expand if c and c.get("rarity") == "rare"})
-    over = sorted({n for n, c in expand if c and RARITY_ORDER.get(c.get("rarity"), 0) > RARITY_ORDER[p["rarity_ceiling"]]})
-    ok = len(rares) == p["rares_exact"] and not over
-    check("legality.rare_count", ok, f"{len(rares)} rare(s): {', '.join(rares) or 'none'}" + (f"; above ceiling: {', '.join(over)}" if over else ""))
+    if "legality.rare_count" in wanted:
+        rares = sorted({n for n, c in expand if c and c.get("rarity") == "rare"})
+        over = sorted({n for n, c in expand if c and RARITY_ORDER.get(c.get("rarity"), 0) > RARITY_ORDER[p["rarity_ceiling"]]})
+        ok = len(rares) == p["rares_exact"] and not over
+        check("legality.rare_count", ok, f"{len(rares)} rare(s): {', '.join(rares) or 'none'}" + (f"; above ceiling: {', '.join(over)}" if over else ""))
 
-    check("legality.land_count", p["lands_min"] <= len(lands) <= p["lands_max"], f"{len(lands)} lands, need {p['lands_min']}-{p['lands_max']}")
+    if "legality.color_identity" in wanted:
+        allowed = set(p["color_identity"])
+        outside = sorted({
+            f"{n} ({', '.join(sorted(set(c.get('color_identity', [])) - allowed))})"
+            for n, c in expand if c and set(c.get("color_identity", [])) - allowed
+        })
+        check("legality.color_identity", not outside,
+              f"every card inside {sorted(allowed)}" if not outside
+              else f"outside {sorted(allowed)}: {'; '.join(outside)}")
 
-    bad_nb = sorted({n for n, c in lands if not is_basic(c) and n not in p["nonbasic_allowed"]})
-    check("legality.nonbasic_lands", not bad_nb, "nonbasics all on the allowed list" if not bad_nb else f"not allowed: {', '.join(bad_nb)}")
+    if "legality.banlist" in wanted:
+        key = p["banlist_key"]
+        illegal = sorted({
+            f"{n} ({c.get('legalities', {}).get(key, 'no legality data')})"
+            for n, c in expand if c and c.get("legalities", {}).get(key) != "legal"
+        })
+        check("legality.banlist", not illegal,
+              f"every card legal in {key}" if not illegal
+              else f"not legal in {key}: {'; '.join(illegal)}")
 
-    ever = set(p["evergreen_keywords"])
-    offenders = sorted({f"{n} ({', '.join(set(c.get('keywords', [])) - ever)})" for n, c in expand if c and set(c.get("keywords", [])) - ever})
-    check("legality.evergreen", not offenders, "all keywords evergreen" if not offenders else f"non-evergreen: {'; '.join(offenders)}")
+    if "legality.game_changers" in wanted:
+        changers = sorted({n for n, c in expand if c and c.get("game_changer")})
+        count = sum(1 for n, c in expand if c and c.get("game_changer"))
+        check("legality.game_changers", count <= p["game_changers_max"],
+              f"{count} Game Changers, limit {p['game_changers_max']}"
+              + (f": {', '.join(changers)}" if count > p["game_changers_max"] else ""))
 
-    need = {}
-    for qty, nm in deck_cards:
-        need[nm] = need.get(nm, 0) + qty
-    short = sorted(f"{nm} (need {n}, own {collection.get(nm, 0)})" for nm, n in need.items() if collection.get(nm, 0) < n)
-    check("availability.in_collection", not short, "every card owned" if not short else f"missing: {'; '.join(short)}")
+    if "legality.land_count" in wanted:
+        check("legality.land_count", p["lands_min"] <= len(lands) <= p["lands_max"], f"{len(lands)} lands, need {p['lands_min']}-{p['lands_max']}")
 
-    spell_colors = {col for n, c in nonland for col in c.get("colors", [])}
-    producible = {m for n, c in lands for m in c.get("produced_mana", [])}
-    gap = sorted(spell_colors - producible)
-    check("manabase.color_coverage", not gap and (not spell_colors or lands), f"spells need {sorted(spell_colors) or 'nothing'}, lands make {sorted(producible) or 'nothing'}")
+    if "legality.nonbasic_lands" in wanted:
+        bad_nb = sorted({n for n, c in lands if not is_basic(c) and n not in p["nonbasic_allowed"]})
+        check("legality.nonbasic_lands", not bad_nb, "nonbasics all on the allowed list" if not bad_nb else f"not allowed: {', '.join(bad_nb)}")
 
-    if nonland:
-        avg = sum(c["cmc"] for n, c in nonland) / len(nonland)
-        check("curve.average", avg <= p["curve_avg_max"], f"average {avg:.2f}, max {p['curve_avg_max']}")
-    else:
-        check("curve.average", False, "no nonland cards yet")
+    if "legality.evergreen" in wanted:
+        ever = set(p["evergreen_keywords"])
+        offenders = sorted({f"{n} ({', '.join(set(c.get('keywords', [])) - ever)})" for n, c in expand if c and set(c.get("keywords", [])) - ever})
+        check("legality.evergreen", not offenders, "all keywords evergreen" if not offenders else f"non-evergreen: {'; '.join(offenders)}")
 
-    early = sum(1 for n, c in nonland if c["cmc"] <= 2)
-    check("curve.early_plays", early >= p["early_nonland_cmc2_min"], f"{early} nonland cards at mana value <=2, need {p['early_nonland_cmc2_min']}")
+    if "availability.in_collection" in wanted:
+        need = {}
+        for qty, nm in deck_cards:
+            need[nm] = need.get(nm, 0) + qty
+        short = sorted(f"{nm} (need {n}, own {collection.get(nm, 0)})" for nm, n in need.items() if collection.get(nm, 0) < n)
+        check("availability.in_collection", not short, "every card owned" if not short else f"missing: {'; '.join(short)}")
+
+    if "manabase.color_coverage" in wanted:
+        spell_colors = {col for n, c in nonland for col in c.get("colors", [])}
+        producible = {m for n, c in lands for m in c.get("produced_mana", [])}
+        gap = sorted(spell_colors - producible)
+        check("manabase.color_coverage", not gap and (not spell_colors or lands), f"spells need {sorted(spell_colors) or 'nothing'}, lands make {sorted(producible) or 'nothing'}")
+
+    if "curve.average" in wanted:
+        if nonland:
+            avg = sum(mana_value(c) for n, c in nonland) / len(nonland)
+            check("curve.average", avg <= p["curve_avg_max"], f"average {avg:.2f}, max {p['curve_avg_max']}")
+        else:
+            check("curve.average", False, "no nonland cards yet")
+
+    if "curve.early_plays" in wanted:
+        early = sum(1 for n, c in nonland if mana_value(c) <= 2)
+        check("curve.early_plays", early >= p["early_nonland_cmc2_min"], f"{early} nonland cards at mana value <=2, need {p['early_nonland_cmc2_min']}")
 
     for tag, target in q.items():
-        n = role_count(tag)
-        check(f"quota.{tag}", n >= target, f"{n} tagged {tag}, need {target}")
+        if f"quota.{tag}" in wanted:
+            n = role_count(tag)
+            check(f"quota.{tag}", n >= target, f"{n} tagged {tag}, need {target}")
 
-    heavy = sorted({n for n, c in expand if c and c["cmc"] > cons["cmc_max"]})
-    check("brief.cmc_max", not heavy, "nothing above the cap" if not heavy else f"above {cons['cmc_max']}: {', '.join(heavy)}")
+    if "brief.includes" in wanted:
+        have = {nm for qty, nm in deck_cards if qty > 0}
+        absent = [nm for nm in cons["must_include"] if nm not in have]
+        check("brief.includes", not absent,
+              "all required cards present" if not absent
+              else f"missing: {'; '.join(absent)}")
 
-    N, K, n = total, len(lands), 7
-    if N >= n:
-        pge2 = 1 - sum(math.comb(K, k) * math.comb(N - K, n - k) for k in (0, 1) if N - K >= n - k) / math.comb(N, n)
-        check("consistency.opening_lands", pge2 >= p["p_2plus_lands_in_7_min"], f"P(>=2 lands in 7) = {pge2:.2f}, need {p['p_2plus_lands_in_7_min']}")
-    else:
-        check("consistency.opening_lands", False, f"deck has {N} cards, cannot draw 7")
+    if "brief.cmc_max" in wanted:
+        heavy = sorted({n for n, c in expand if c and mana_value(c) > cons["cmc_max"]})
+        check("brief.cmc_max", not heavy, "nothing above the cap" if not heavy else f"above {cons['cmc_max']}: {', '.join(heavy)}")
+
+    if "consistency.opening_lands" in wanted:
+        N, K, n = total, len(lands), 7
+        if N >= n:
+            pge2 = 1 - sum(math.comb(K, k) * math.comb(N - K, n - k) for k in (0, 1) if N - K >= n - k) / math.comb(N, n)
+            check("consistency.opening_lands", pge2 >= p["p_2plus_lands_in_7_min"], f"P(>=2 lands in 7) = {pge2:.2f}, need {p['p_2plus_lands_in_7_min']}")
+        else:
+            check("consistency.opening_lands", False, f"deck has {N} cards, cannot draw 7")
+
+    unresolved = sorted(wanted - set(results))
+    if unresolved:
+        print(f"check id(s) resolving to no fixed predicate: {', '.join(unresolved)} — "
+              "the Suite is data for this runner; an unknown id means a wrong Suite "
+              "or an old runner, never a verdict", file=sys.stderr)
+        sys.exit(2)
 
     return results, unknown
 

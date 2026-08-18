@@ -30,3 +30,16 @@ mean for prompt-ware.
   Collection home, handing off to Build. Ships stdlib-only helpers for Brief
   validation (donor recognition included) and freshness signals, plus the
   `brief-smoke` offline eval case. (#52)
+- Build front half: `/tutor:build` generates the Deck's Suite from the Brief
+  and its Format profile before any card is picked — snapshotted targets, the
+  quota table over the global Role vocabulary, mechanical Brief constraints
+  under `# brief:` provenance comments, an empty Role-tag section — and shows
+  it honestly red on the empty Deck through the fixed runner, Suite and report
+  written to the Collection home. Commander ships as the first first-class
+  Format profile: deck size, singleton copy limit, check targets, per-bracket
+  Game Changers limits reading the Oracle's `game_changer` flag, banlist
+  parameter, and judgment-flavored Role guidance, all data. The runner now
+  runs exactly the Checks a Suite lists and gains the Commander predicates —
+  color identity, banlist, Game Changers, must-include — plus the
+  `mana_value` Oracle vocabulary; the `build-smoke` offline eval case grades
+  the whole seam. (#53)

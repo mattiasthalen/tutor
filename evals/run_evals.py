@@ -42,6 +42,7 @@ CASE_NAMES = {
     1: "harness-smoke",
     2: "oracle-smoke",
     3: "brief-smoke",
+    4: "build-smoke",
 }
 
 
@@ -877,6 +878,210 @@ def check_brief_skill_content(_ctx):
     )
 
 
+# --- Build skill predicates (issue #53) -------------------------------------
+# The build-smoke case runs the deterministic seams of Build's front half —
+# the Suite generator CLI and the fixed runner over the committed build
+# fixtures — offline. The live /tutor:build walk stays soft, dev-time judged.
+
+BUILD_SKILL_PATH = REPO_ROOT / "skills" / "build" / "SKILL.md"
+BUILD_COMMAND_PATH = REPO_ROOT / "commands" / "build.md"
+BUILD_GENERATOR = REPO_ROOT / "skills" / "build" / "scripts" / "generate_suite.py"
+COMMANDER_PROFILE = REPO_ROOT / "skills" / "build" / "profiles" / "commander.yaml"
+SUITE_RUNNER = REPO_ROOT / "skills" / "suite-runner" / "scripts" / "check_deck.py"
+
+# The date pinned into the committed build fixtures (Suite generated: line and
+# report date: line), so re-runs are byte-comparable.
+BUILD_REFERENCE_DATE = "2026-08-18"
+
+ROLE_VOCABULARY = {"ramp", "draw", "removal", "wipe", "wincon", "land", "theme", "other"}
+
+
+def run_build_cli(script, *args):
+    import subprocess
+
+    return subprocess.run(
+        [sys.executable, str(script), *[str(a) for a in args]],
+        capture_output=True, text=True, timeout=120,
+    )
+
+
+def section_lines(text, section):
+    """The stripped non-comment lines of one top-level section of a
+    YAML-subset file — the harness's own flat read, deliberately independent
+    of the runner's parser."""
+    lines, inside = [], False
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        if not line.startswith(" "):
+            inside = line.rstrip() == f"{section}:"
+            continue
+        if inside and not line.strip().startswith("#"):
+            lines.append(line.strip())
+    return lines
+
+
+def check_commander_profile(_ctx):
+    text = COMMANDER_PROFILE.read_text(encoding="utf-8")
+    problems = []
+    profile = section_lines(text, "profile")
+    for needle in ("deck_size: 100", "copy_limit_nonland: 1", "banlist_key: commander"):
+        if needle not in profile:
+            problems.append(f"profile lacks {needle!r}")
+    for target in ("lands_min", "lands_max", "curve_avg_max",
+                   "early_nonland_cmc2_min", "p_2plus_lands_in_7_min"):
+        if not any(l.startswith(f"{target}:") for l in profile):
+            problems.append(f"no {target} check target")
+    brackets = section_lines(text, "game_changers_max_by_power")
+    if brackets != ["1: 0", "2: 0", "3: 3", "4: unlimited", "5: unlimited"]:
+        problems.append(f"Game Changers bracket table is {brackets}")
+    guidance = section_lines(text, "role_guidance")
+    guided = {l.split(":", 1)[0] for l in guidance}
+    if not {"ramp", "draw", "removal", "wipe", "wincon"} <= guided:
+        problems.append(f"role guidance covers only {sorted(guided)}")
+    return not problems, "; ".join(problems) or (
+        "deck size 100, singleton, five check targets, brackets 0/0/3/unlimited/unlimited, "
+        "banlist key, Role guidance — all data"
+    )
+
+
+def check_suite_generation_reproducible(ctx):
+    generated = run_build_cli(
+        BUILD_GENERATOR,
+        "--brief", ctx.path("briefs/commander-tatyova-landfall.txt"),
+        "--profile", COMMANDER_PROFILE,
+        "--oracle", ctx.path("scryfall/oracle.jsonl"),
+        "--date", BUILD_REFERENCE_DATE,
+    )
+    if generated.returncode != 0:
+        return False, f"generate_suite.py failed: {generated.stderr.strip()[:200]}"
+    committed = ctx.path("build/tatyova-landfall.suite.yaml").read_text(encoding="utf-8")
+    if generated.stdout != committed:
+        return False, "committed fixture Suite differs from a fresh generation"
+    return True, (
+        f"fixture Suite reproduced byte-identical "
+        f"({len(committed.splitlines())} lines of declarative data)"
+    )
+
+
+def check_suite_shape(ctx):
+    text = ctx.path("build/tatyova-landfall.suite.yaml").read_text(encoding="utf-8")
+    problems = []
+    ids = re.findall(r"^  - id: (\S+)$", text, re.MULTILINE)
+    classes = {cid.split(".", 1)[0] for cid in ids}
+    expected = {"legality", "availability", "manabase", "curve", "quota", "brief", "consistency"}
+    if classes != expected:
+        problems.append(f"Check classes {sorted(classes)} != {sorted(expected)}")
+    if any("budget" in cid for cid in ids) or "budget" in text:
+        problems.append("a budget class leaked into the Suite")
+    quota_tags = {cid.split(".", 1)[1] for cid in ids if cid.startswith("quota.")}
+    if not quota_tags <= ROLE_VOCABULARY:
+        problems.append(f"quota tags outside the Role vocabulary: {sorted(quota_tags - ROLE_VOCABULARY)}")
+    profile_snapshot = [
+        line for line in section_lines(COMMANDER_PROFILE.read_text(encoding="utf-8"), "profile")
+    ]
+    suite_profile = section_lines(text, "profile")
+    missing = [line for line in profile_snapshot if line not in suite_profile]
+    if missing:
+        problems.append(f"profile targets not snapshotted verbatim: {missing}")
+    for derived in ("color_identity:", "game_changers_max:", "cmc_max:"):
+        lines = text.splitlines()
+        hits = [i for i, l in enumerate(lines) if l.strip().startswith(derived)]
+        if not hits:
+            problems.append(f"no Brief-derived {derived} value")
+        elif not all(lines[i - 1].strip().startswith("# brief:") for i in hits):
+            problems.append(f"{derived} carries no brief: provenance comment")
+    if "# brief: constraint: nothing above 6 mana" not in text:
+        problems.append("cmc_max does not trace to the Brief's constraint line")
+    if section_lines(text, "roles"):
+        problems.append("roles: is not empty — a card was picked before Build start?")
+    return not problems, "; ".join(problems) or (
+        f"{len(ids)} Checks across all seven classes, no budget, targets snapshotted, "
+        "overrides under brief: provenance, roles empty"
+    )
+
+
+def check_empty_deck_red(ctx):
+    result = run_build_cli(
+        SUITE_RUNNER,
+        "--suite", ctx.path("build/tatyova-landfall.suite.yaml"),
+        "--deck", ctx.path("build/tatyova-empty-deck.txt"),
+        "--oracle", ctx.path("scryfall/oracle.jsonl"),
+        "--collection", ctx.path("collections/real-collection.csv"),
+        "--date", BUILD_REFERENCE_DATE,
+    )
+    problems = []
+    if result.returncode != 1:
+        problems.append(f"exit code {result.returncode}, red is 1")
+    committed = ctx.path("build/tatyova-empty-report.txt").read_text(encoding="utf-8")
+    if result.stdout != committed:
+        problems.append("report differs from the committed reference")
+    colors = dict(
+        (m.group(2), m.group(1))
+        for m in (re.match(r"^(red|green)\s+(\S+) — ", line)
+                  for line in result.stdout.splitlines())
+        if m
+    )
+    must_be_red = (
+        "legality.size", "legality.land_count", "curve.average", "curve.early_plays",
+        "quota.ramp", "quota.draw", "quota.removal", "quota.wipe", "quota.wincon",
+        "consistency.opening_lands", "brief.includes",
+    )
+    vacuous_green = (
+        "legality.singleton", "legality.color_identity", "legality.banlist",
+        "legality.game_changers", "availability.in_collection",
+    )
+    problems += [f"{cid} is {colors.get(cid)}, not red" for cid in must_be_red
+                 if colors.get(cid) != "red"]
+    problems += [f"{cid} is {colors.get(cid)}, not vacuously green" for cid in vacuous_green
+                 if colors.get(cid) != "green"]
+    return not problems, "; ".join(problems) or (
+        f"{sum(1 for c in colors.values() if c == 'red')} red / "
+        f"{sum(1 for c in colors.values() if c == 'green')} green, byte-identical "
+        "to the reference — Build starts honestly red"
+    )
+
+
+def check_build_wiring(_ctx):
+    problems = []
+    command = BUILD_COMMAND_PATH.read_text(encoding="utf-8")
+    if "skills/build/SKILL.md" not in command:
+        problems.append("commands/build.md never hands off to skills/build/SKILL.md")
+    skill = BUILD_SKILL_PATH.read_text(encoding="utf-8")
+    pinned = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))["version"]
+    m = re.search(r"^metadata:\n[ \t]+version:[ \t]*(\S+)", skill, re.MULTILINE)
+    if not m:
+        problems.append("skills/build/SKILL.md carries no metadata.version")
+    elif m.group(1) != pinned:
+        problems.append(
+            f"skill metadata.version {m.group(1)} != pinned plugin version {pinned}"
+        )
+    return not problems, "; ".join(problems) or (
+        f"/tutor:build wraps skills/build/SKILL.md, versioned {pinned} in lockstep"
+    )
+
+
+def check_build_skill_content(_ctx):
+    """Tripwire, not proof: the skill is prompt-ware judged by its artifacts;
+    these needles keep the load-bearing sentences from silently vanishing."""
+    text = BUILD_SKILL_PATH.read_text(encoding="utf-8")
+    needles = [
+        "before any card is picked",
+        "decks/<slug>.suite.yaml",
+        "suite-report.txt",
+        "/tutor:oracle",
+        "beats the file",
+        "re-settle the Brief",
+        "vacuous",
+    ]
+    missing = [n for n in needles if n not in text]
+    return not missing, (
+        f"skills/build/SKILL.md lacks {missing}" if missing
+        else "Collection-home writes, the Oracle offer, paste-beats-file, the refusal "
+             "path, and the no-card-yet contract are pinned"
+    )
+
+
 # --- Registry: exact expectation text -> fixed predicate --------------------
 # Keys are pinned verbatim to the strings in evals.json; editing a wording
 # means editing both, deliberately. Unregistered expectations are soft.
@@ -932,6 +1137,18 @@ EXPECTATION_CHECKS = {
         check_freshness_helper,
     "The brief skill's text pins the grammar it must emit: all nine canonical keys, only format required, no budget key, Power defaulting to 2, one freshness question, and a closing handoff to Build.":
         check_brief_skill_content,
+    "The Commander Format profile is first-class declarative data: deck size 100, singleton copy limit, lands, curve, and consistency check targets, per-bracket Game Changers limits 0 / 0 / 3 / unlimited / unlimited for Power 1-5, a banlist parameter, and judgment-flavored Role guidance.":
+        check_commander_profile,
+    "Run over the fixture Tatyova Brief, the Commander profile, and the fixture Oracle, the Suite generator reproduces the committed fixture Suite byte-identical — declarative data, never code.":
+        check_suite_generation_reproducible,
+    "The fixture Suite carries every generated Check class — Legality, Availability, Mana base, Curve, Quotas over the global Role vocabulary, mechanical Brief constraints, hypergeometric Consistency — with no budget class, targets snapshotted from the profile, Brief-set values under brief: provenance comments, and an empty roles: section because no card is picked yet.":
+        check_suite_shape,
+    "Through the unmodified runner, the empty fixture Deck reports byte-identical to the committed reference: every size, mana-base-count, curve, and quota Check red, the singleton, color identity, banlist, Game Changers, and availability Checks vacuously green, exit code red.":
+        check_empty_deck_red,
+    "The /tutor:build command is a thin wrapper handing off to the build skill, whose metadata.version matches the plugin manifest's pinned version.":
+        check_build_wiring,
+    "The build skill's text pins the front half: the Suite and its report written to the Collection home, the offer to generate an absent Oracle via /tutor:oracle when network allows, a pasted Export or Block beating the file, a refused constraint going back to the Brief, and no card picked before the Suite exists.":
+        check_build_skill_content,
 }
 
 

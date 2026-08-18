@@ -1,0 +1,86 @@
+# Suite Block — generated at Build start from the Brief and the Format profile,
+# before any card is picked (ADR 0005). Data only: targets are snapshotted,
+# judgment lands as data, the fixed runner interprets. Re-running the Suite
+# (including at Upgrade) reuses this file as-is; only a changed Brief
+# regenerates it.
+
+suite: Tatyova Landfall
+format: Commander
+generated: 2026-08-18
+brief: commander — Tatyova, Benthic Druid — power 2
+
+profile:
+  # Format-profile targets snapshotted at generation. Lines under a "brief:"
+  # comment were set or overridden by the Brief — the only voice allowed to.
+  deck_size: 100
+  copy_limit_nonland: 1
+  lands_min: 35
+  lands_max: 40
+  curve_avg_max: 3.5
+  early_nonland_cmc2_min: 12
+  p_2plus_lands_in_7_min: 0.9
+  banlist_key: commander
+  # brief: centerpiece: Tatyova, Benthic Druid — color identity from the Oracle
+  color_identity: [G, U]
+  # brief: power: 2 — bracket allows 0 Game Changers
+  game_changers_max: 0
+
+quotas:
+  # Role quotas over the global Role vocabulary. One Check per line.
+  ramp: 10
+  draw: 10
+  removal: 8
+  wipe: 2
+  wincon: 2
+
+constraints:
+  # Mechanical Brief constraints (judgment-free), one Check each.
+  # brief: constraint: nothing above 6 mana
+  cmc_max: 6
+  must_include:
+    # brief: centerpiece: Tatyova, Benthic Druid
+    - Tatyova, Benthic Druid
+
+roles:
+  # Card -> Role tags: judgment recorded once per card as Build tags it.
+  # Empty at Build start — no card is picked yet.
+
+checks:
+  # The Suite: every id resolves to a fixed predicate in the runner (or a
+  # walkable sentence when no sandbox exists); every parameter lives above.
+  - id: legality.size
+    text: Deck has exactly {deck_size} cards, commander included.
+  - id: legality.singleton
+    text: No nonland card appears more than {copy_limit_nonland} time(s).
+  - id: legality.color_identity
+    text: Every card stays inside the commander's color identity ({color_identity}).
+  - id: legality.banlist
+    text: Every card is legal in {banlist_key} per the Oracle.
+  - id: legality.game_changers
+    text: At most {game_changers_max} Game Changers for this bracket.
+  - id: legality.land_count
+    text: Between {lands_min} and {lands_max} lands.
+  - id: availability.in_collection
+    text: Every card (at its count) exists in the Collection.
+  - id: manabase.color_coverage
+    text: Lands can produce every color the spells ask for.
+  - id: curve.average
+    text: Average nonland mana value is at most {curve_avg_max}.
+  - id: curve.early_plays
+    text: At least {early_nonland_cmc2_min} nonland cards at mana value 2 or less.
+  - id: quota.ramp
+    text: At least {quotas.ramp} cards tagged ramp.
+  - id: quota.draw
+    text: At least {quotas.draw} cards tagged draw.
+  - id: quota.removal
+    text: At least {quotas.removal} cards tagged removal.
+  - id: quota.wipe
+    text: At least {quotas.wipe} cards tagged wipe.
+  - id: quota.wincon
+    text: At least {quotas.wincon} cards tagged wincon.
+  - id: brief.cmc_max
+    text: No card above mana value {cmc_max}.
+  - id: brief.includes
+    text: The Deck contains every must-include card ({must_include}).
+  - id: consistency.opening_lands
+    text: P(at least 2 lands in a 7-card opening hand) is at least {p_2plus_lands_in_7_min}.

@@ -1,0 +1,25 @@
+suite: Tatyova Landfall
+deck: Tatyova Landfall
+format: Commander
+date: 2026-08-18
+oracle: data-backed (436 cards)
+verdict: red — 11 red / 7 green
+
+red   legality.size — 0 cards, need exactly 100
+green legality.singleton — no nonland above 1 copy
+green legality.color_identity — every card inside ['G', 'U']
+green legality.banlist — every card legal in commander
+green legality.game_changers — 0 Game Changers, limit 0
+red   legality.land_count — 0 lands, need 35-40
+green availability.in_collection — every card owned
+green manabase.color_coverage — spells need nothing, lands make nothing
+red   curve.average — no nonland cards yet
+red   curve.early_plays — 0 nonland cards at mana value <=2, need 12
+red   quota.ramp — 0 tagged ramp, need 10
+red   quota.draw — 0 tagged draw, need 10
+red   quota.removal — 0 tagged removal, need 8
+red   quota.wipe — 0 tagged wipe, need 2
+red   quota.wincon — 0 tagged wincon, need 2
+green brief.cmc_max — nothing above the cap
+red   brief.includes — missing: Tatyova, Benthic Druid
+red   consistency.opening_lands — deck has 0 cards, cannot draw 7

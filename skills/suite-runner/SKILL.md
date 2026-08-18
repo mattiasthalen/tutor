@@ -20,7 +20,7 @@ A Suite is declarative data — snapshotted profile targets, quotas, mechanical 
      --oracle <oracle-file> --collection <export-file>
    ```
 
-   Exit 0: every Check green. Exit 1: at least one red. Add `--date YYYY-MM-DD` when the report must be byte-comparable to an earlier run; two runs over the same inputs then diff clean.
+   Exit 0: every Check green. Exit 1: at least one red. Exit 2: the Suite lists a check id resolving to no fixed predicate — a wrong Suite or an old runner, never a verdict. Add `--date YYYY-MM-DD` when the report must be byte-comparable to an earlier run; two runs over the same inputs then diff clean.
 3. Deliver the report Block verbatim — the flat `suite:`/`deck:`/`format:`/`date:`/`oracle:` head, the `verdict:` line, then one `red|green <check-id> — evidence` line per Check. The report is the artifact: quote it whole, with every verdict line exactly as printed.
 
 ## Walk it (no sandbox)
