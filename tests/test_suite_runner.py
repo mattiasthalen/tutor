@@ -11,10 +11,12 @@ these tests never recompute a verdict the way the runner does.
 Everything runs offline against committed fixtures; no network, stdlib only.
 """
 
+import json
 import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
@@ -26,21 +28,24 @@ FIXTURES = REPO / "tests" / "fixtures"
 REFERENCE_DATE = "2026-08-18"
 
 
-def run_suite(deck, *extra):
-    """Invoke the runner CLI over the fixture Suite and the given deck file."""
+def run_runner(*args):
+    """Invoke the runner CLI with the given arguments."""
     return subprocess.run(
-        [
-            sys.executable,
-            str(RUNNER),
-            "--suite", str(FIXTURES / "suite.yaml"),
-            "--deck", str(FIXTURES / "decks" / deck),
-            "--oracle", str(FIXTURES / "oracle.json"),
-            "--collection", str(FIXTURES / "collection.csv"),
-            "--date", REFERENCE_DATE,
-            *extra,
-        ],
+        [sys.executable, str(RUNNER), *(str(a) for a in args)],
         capture_output=True,
         text=True,
+    )
+
+
+def run_suite(deck, *extra, oracle=None):
+    """Invoke the runner CLI over the fixture Suite and the given deck file."""
+    return run_runner(
+        "--suite", FIXTURES / "suite.yaml",
+        "--deck", FIXTURES / "decks" / deck,
+        "--oracle", oracle or FIXTURES / "oracle.json",
+        "--collection", FIXTURES / "collection.csv",
+        "--date", REFERENCE_DATE,
+        *extra,
     )
 
 
@@ -97,21 +102,43 @@ class DeterministicReports(unittest.TestCase):
                 self.assertEqual(first.returncode, second.returncode)
 
 
+class JsonlOracle(unittest.TestCase):
+    """The Collection-home Oracle is `oracle.jsonl` (ADR 0007): JSON Lines,
+    one card-facts object per line, whose first line is a metadata record —
+    `generated_at` plus the source-Export watermark — not a card. The runner
+    reads it and reaches the same verdicts as the JSON-array Oracle fixture,
+    byte for byte."""
+
+    @classmethod
+    def setUpClass(cls):
+        cards = json.loads((FIXTURES / "oracle.json").read_text())
+        meta = {
+            "generated_at": "2026-08-18T00:00:00Z",
+            "source_export_newest_added": "2026-08-17 21:14:02",
+        }
+        cls.tmpdir = tempfile.TemporaryDirectory()
+        cls.jsonl = pathlib.Path(cls.tmpdir.name) / "oracle.jsonl"
+        cls.jsonl.write_text("\n".join(json.dumps(r) for r in [meta] + cards) + "\n")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmpdir.cleanup()
+
+    def test_same_reports_as_array_oracle(self):
+        for deck in ("empty.txt", "draft.txt", "final.txt"):
+            with self.subTest(deck=deck):
+                from_array = run_suite(deck)
+                from_jsonl = run_suite(deck, oracle=self.jsonl)
+                self.assertEqual(from_jsonl.stdout, from_array.stdout)
+                self.assertEqual(from_jsonl.returncode, from_array.returncode)
+
+
 class ChecklistRender(unittest.TestCase):
     """The same Suite data renders as a walkable checklist for sandbox-less
     sessions — from the Suite file alone, no Deck, Oracle, or Collection."""
 
     def test_render_matches_prototype_reference(self):
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(RUNNER),
-                "--suite", str(FIXTURES / "suite.yaml"),
-                "--render-checklist",
-            ],
-            capture_output=True,
-            text=True,
-        )
+        result = run_runner("--suite", FIXTURES / "suite.yaml", "--render-checklist")
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, expected("checklist.md"))
 

@@ -18,7 +18,7 @@ the Suite stays human-readable without buying a dependency.
 
 Usage:
   python3 check_deck.py --suite suite.yaml --deck deck.txt \
-      --oracle oracle.json --collection collection.csv     # run, print report Block
+      --oracle oracle.jsonl --collection collection.csv    # run, print report Block
   python3 check_deck.py --suite suite.yaml --render-checklist
                                                            # walkable checklist from the same Suite
   --date YYYY-MM-DD pins the report's date line (defaults to today), so two
@@ -119,8 +119,18 @@ def parse_deck(text):
 # ---------- data access ----------
 
 def load_oracle(path):
+    """Card facts by name, in either Oracle form: `oracle.jsonl` — the
+    Collection-home file (ADR 0007), JSON Lines whose first line is a metadata
+    record (`generated_at` plus the source-Export watermark) — or a plain JSON
+    array. Sniffed by the first character; records without a card `name`
+    (the metadata line) are skipped."""
     with open(path) as f:
-        return {c["name"]: c for c in json.load(f)}
+        text = f.read()
+    if text.lstrip().startswith("["):
+        records = json.loads(text)
+    else:
+        records = [json.loads(line) for line in text.splitlines() if line.strip()]
+    return {c["name"]: c for c in records if "name" in c}
 
 def load_collection(path):
     counts = {}
@@ -268,7 +278,7 @@ def main():
     ap = argparse.ArgumentParser(description="Run a declarative tutor Suite over a Deck, offline.")
     ap.add_argument("--suite", required=True, help="Suite file (YAML-subset Block)")
     ap.add_argument("--deck", help="Deck Block file (ManaBox-importable text)")
-    ap.add_argument("--oracle", help="Oracle card-facts file (JSON)")
+    ap.add_argument("--oracle", help="Oracle card-facts file (oracle.jsonl JSON Lines, or a JSON array)")
     ap.add_argument("--collection", help="Collection Export file (ManaBox CSV)")
     ap.add_argument("--date", default=None, metavar="YYYY-MM-DD",
                     help="date for the report's date line (default: today)")

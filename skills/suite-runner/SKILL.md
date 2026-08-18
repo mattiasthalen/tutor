@@ -11,7 +11,7 @@ A Suite is declarative data — snapshotted profile targets, quotas, mechanical 
 
 ## Run it
 
-1. Gather the four inputs: the Suite file, the Deck Block file, the Oracle (card-facts JSON), and the Export (`collection.csv`). In a Collection home they sit in the working directory. A pasted Block beats the file on conflict — write the paste to a temporary file and pass that path.
+1. Gather the four inputs: the Suite file, the Deck Block file, the Oracle, and the Export (`collection.csv`). In a Collection home they sit in the working directory, the Oracle as `oracle.jsonl` — JSON Lines, one card-facts object per line, first line a metadata record (ADR 0007); a plain JSON-array Oracle is also accepted. A pasted Block beats the file on conflict — write the paste to a temporary file and pass that path.
 2. Run:
 
    ```sh
