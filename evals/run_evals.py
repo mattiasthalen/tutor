@@ -659,6 +659,9 @@ def check_oracle_skill_fallback(ctx):
         problems.append(f"expected [{card['name']}] via fallback, got {names}")
     return not problems, "; ".join(problems) or (
         f"an unknown Scryfall ID resolved through Name + Set code: {card['name']}"
+    )
+
+
 # --- Brief skill predicates (issue #52) -------------------------------------
 # The brief conversation is prompt-ware: its behavioral expectations (fires
 # from natural language; scripted answers yield the Brief; a pasted Export
