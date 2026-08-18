@@ -326,6 +326,90 @@ def check_snapshot_coverage(ctx):
     )
 
 
+ORACLE_FIELDS = {
+    "name", "mana_value", "colors", "color_identity", "type_line",
+    "oracle_text", "legalities", "game_changer",
+}
+TOKEN_LAYOUTS = {"token", "double_faced_token", "emblem", "art_series"}
+
+
+def load_oracle(ctx):
+    lines = ctx.path("scryfall/oracle.jsonl").read_text(encoding="utf-8").splitlines()
+    meta = json.loads(lines[0])["oracle_meta"]
+    return meta, [json.loads(line) for line in lines[1:]]
+
+
+def check_oracle_rederivation(ctx):
+    import subprocess
+    derived = subprocess.run(
+        [sys.executable, str(ctx.path("scryfall/derive_oracle.py")), "--stdout"],
+        capture_output=True, text=True, timeout=120,
+    )
+    if derived.returncode != 0:
+        return False, f"derive_oracle.py failed: {derived.stderr.strip()[:200]}"
+    committed = ctx.path("scryfall/oracle.jsonl").read_text(encoding="utf-8")
+    if derived.stdout != committed:
+        return False, "committed oracle.jsonl differs from a fresh derivation of the snapshot"
+    return True, f"oracle.jsonl reproduced byte-identical ({len(committed.splitlines()) - 1} cards)"
+
+
+def check_oracle_shape(ctx):
+    meta, records = load_oracle(ctx)
+    _, snapshot_cards = load_snapshot(ctx)
+    problems = []
+    if meta.get("card_count") != len(records):
+        problems.append(f"metadata card_count {meta.get('card_count')} != {len(records)} lines")
+    names = [r["name"] for r in records]
+    if names != sorted(names) or len(names) != len(set(names)):
+        problems.append("Oracle lines are not unique name-sorted")
+    for r in records:
+        if set(r) != ORACLE_FIELDS:
+            problems.append(f"{r.get('name', '?')}: fields {sorted(r)} != the Oracle shape")
+            break
+        if set(r["legalities"]) != {"standard", "pioneer", "modern", "commander"}:
+            problems.append(f"{r['name']}: legalities not trimmed to the four sanctioned Formats")
+            break
+        if not isinstance(r["game_changer"], bool):
+            problems.append(f"{r['name']}: game_changer is not a boolean")
+            break
+    token_names = {c["name"] for c in snapshot_cards if c.get("layout") in TOKEN_LAYOUTS}
+    playable_names = {c["name"] for c in snapshot_cards if c.get("layout") not in TOKEN_LAYOUTS}
+    leaked = sorted((token_names - playable_names) & set(names))
+    if leaked:
+        problems.append(f"token rows leaked into the Oracle: {leaked[:5]}")
+    if playable_names - set(names):
+        problems.append(f"playable snapshot cards missing: {sorted(playable_names - set(names))[:5]}")
+    if not any(" // " in n for n in names):
+        problems.append("no multi-faced name flattened with //")
+    if not {"Plains", "Island", "Swamp", "Forest"} <= set(names):
+        problems.append("basic lands missing from the Oracle")
+    return not problems, "; ".join(problems) or (
+        f"{len(records)} name-keyed lines, four-Format legalities, "
+        f"{sum(1 for n in names if ' // ' in n)} flattened multi-faced names, tokens excluded"
+    )
+
+
+def check_oracle_watermark(ctx):
+    meta, _ = load_oracle(ctx)
+    snap_meta, _ = load_snapshot(ctx)
+    problems = []
+    if meta.get("generated_at") != snap_meta.get("captured_at"):
+        problems.append(
+            f"generated_at {meta.get('generated_at')} != snapshot captured_at {snap_meta.get('captured_at')}"
+        )
+    newest = ""
+    for csv_path in sorted(ctx.path("collections").glob("*.csv")):
+        for row in ctx.read_manabox_csv(f"collections/{csv_path.name}"):
+            newest = max(newest, row.get("Added", "").strip())
+    if meta.get("source_export_newest_added") != newest:
+        problems.append(
+            f"watermark {meta.get('source_export_newest_added')} != newest fixture Added {newest}"
+        )
+    return not problems, "; ".join(problems) or (
+        f"generated_at {meta['generated_at']}, source Export watermark {newest}"
+    )
+
+
 # --- Registry: exact expectation text -> fixed predicate --------------------
 # Keys are pinned verbatim to the strings in evals.json; editing a wording
 # means editing both, deliberately. Unregistered expectations are soft.
@@ -349,6 +433,12 @@ EXPECTATION_CHECKS = {
         check_planted_flaws,
     "The pinned Scryfall snapshot covers every card the fixtures reference and nothing else, with its capture metadata on line one.":
         check_snapshot_coverage,
+    "The fixture Oracle scryfall/oracle.jsonl is byte-identical to a fresh offline derivation from the pinned snapshot.":
+        check_oracle_rederivation,
+    "Every Oracle line is name-keyed with mana value, colors, color identity, type line, oracle text, the four sanctioned legalities, and the game_changer flag — no UUIDs, tokens excluded, basics included, multi-faced names flattened with //.":
+        check_oracle_shape,
+    "The Oracle's first line records generated_at and the source Export's newest Added watermark.":
+        check_oracle_watermark,
 }
 
 
