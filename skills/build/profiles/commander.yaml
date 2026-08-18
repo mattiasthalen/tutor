@@ -18,7 +18,12 @@ profile:
   lands_max: 40
   curve_avg_max: 3.5
   early_nonland_cmc2_min: 12
-  p_2plus_lands_in_7_min: 0.9
+  # Consistency target, derived from the land window above so both checks can
+  # green at once: exact hypergeometric P(>=2 lands in a 7-card hand | N=100,
+  # K=35) = 0.7759, rounded DOWN to two decimals so the boundary land count
+  # itself satisfies it. P rises with the land count (K=40 gives 0.8508), so
+  # lands_min is the binding case and the whole window [35, 40] clears 0.77.
+  p_2plus_lands_in_7_min: 0.77
   # Banlist parameter: which Oracle legalities key the legality.banlist Check
   # reads. Scryfall legality data is informational only.
   banlist_key: commander

@@ -18,7 +18,7 @@ profile:
   lands_max: 40
   curve_avg_max: 3.5
   early_nonland_cmc2_min: 12
-  p_2plus_lands_in_7_min: 0.9
+  p_2plus_lands_in_7_min: 0.77
   banlist_key: commander
   # brief: centerpiece: Tatyova, Benthic Druid — color identity from the Oracle
   color_identity: [G, U]
