@@ -1,0 +1,409 @@
+[
+ {
+  "name": "Plains",
+  "set": "fdn",
+  "collector_number": "272",
+  "rarity": "common",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "colors": [],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Basic Land \u2014 Plains",
+  "keywords": [],
+  "oracle_text": "({T}: Add {W}.)",
+  "produced_mana": [
+   "W"
+  ]
+ },
+ {
+  "name": "Uncharted Haven",
+  "set": "fdn",
+  "collector_number": "564",
+  "rarity": "common",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "colors": [],
+  "color_identity": [],
+  "type_line": "Land",
+  "keywords": [],
+  "oracle_text": "This land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.",
+  "produced_mana": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ]
+ },
+ {
+  "name": "Exemplar of Light",
+  "set": "fdn",
+  "collector_number": "733",
+  "rarity": "rare",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Angel",
+  "keywords": [
+   "Flying"
+  ],
+  "oracle_text": "Flying\nWhenever you gain life, put a +1/+1 counter on this creature.\nWhenever you put one or more +1/+1 counters on this creature, draw a card. This ability triggers only once each turn."
+ },
+ {
+  "name": "Giada, Font of Hope",
+  "set": "fdn",
+  "collector_number": "141",
+  "rarity": "rare",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Legendary Creature \u2014 Angel",
+  "keywords": [
+   "Flying",
+   "Vigilance"
+  ],
+  "oracle_text": "Flying, vigilance\nEach other Angel you control enters with an additional +1/+1 counter on it for each Angel you already control.\n{T}: Add {W}. Spend this mana only to cast an Angel spell.",
+  "produced_mana": [
+   "W"
+  ]
+ },
+ {
+  "name": "Healer's Hawk",
+  "set": "fdn",
+  "collector_number": "734",
+  "rarity": "common",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Bird",
+  "keywords": [
+   "Flying",
+   "Lifelink"
+  ],
+  "oracle_text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)"
+ },
+ {
+  "name": "Hinterland Sanctifier",
+  "set": "fdn",
+  "collector_number": "730",
+  "rarity": "common",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Rabbit Cleric",
+  "keywords": [],
+  "oracle_text": "Whenever another creature you control enters, you gain 1 life."
+ },
+ {
+  "name": "Bishop's Soldier",
+  "set": "fdn",
+  "collector_number": "491",
+  "rarity": "common",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Vampire Soldier",
+  "keywords": [
+   "Lifelink"
+  ],
+  "oracle_text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)"
+ },
+ {
+  "name": "Leonin Vanguard",
+  "set": "fdn",
+  "collector_number": "499",
+  "rarity": "uncommon",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Cat Soldier",
+  "keywords": [],
+  "oracle_text": "At the beginning of combat on your turn, if you control three or more creatures, this creature gets +1/+1 until end of turn and you gain 1 life."
+ },
+ {
+  "name": "Ajani's Pridemate",
+  "set": "fdn",
+  "collector_number": "135",
+  "rarity": "uncommon",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Cat Soldier",
+  "keywords": [],
+  "oracle_text": "Whenever you gain life, put a +1/+1 counter on this creature."
+ },
+ {
+  "name": "Prideful Parent",
+  "set": "fdn",
+  "collector_number": "21",
+  "rarity": "common",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Cat",
+  "keywords": [
+   "Vigilance"
+  ],
+  "oracle_text": "Vigilance (Attacking doesn't cause this creature to tap.)\nWhen this creature enters, create a 1/1 white Cat creature token."
+ },
+ {
+  "name": "Inspiring Overseer",
+  "set": "fdn",
+  "collector_number": "736",
+  "rarity": "common",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Angel Cleric",
+  "keywords": [
+   "Flying"
+  ],
+  "oracle_text": "Flying\nWhen this creature enters, you gain 1 life and draw a card."
+ },
+ {
+  "name": "Felidar Savior",
+  "set": "fdn",
+  "collector_number": "12",
+  "rarity": "common",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Cat Beast",
+  "keywords": [
+   "Lifelink"
+  ],
+  "oracle_text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\nWhen this creature enters, put a +1/+1 counter on each of up to two other target creatures you control."
+ },
+ {
+  "name": "Pacifism",
+  "set": "fdn",
+  "collector_number": "501",
+  "rarity": "common",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Enchantment \u2014 Aura",
+  "keywords": [
+   "Enchant"
+  ],
+  "oracle_text": "Enchant creature\nEnchanted creature can't attack or block."
+ },
+ {
+  "name": "Banishing Light",
+  "set": "fdn",
+  "collector_number": "138",
+  "rarity": "common",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Enchantment",
+  "keywords": [],
+  "oracle_text": "When this enchantment enters, exile target nonland permanent an opponent controls until this enchantment leaves the battlefield."
+ },
+ {
+  "name": "Dazzling Angel",
+  "set": "fdn",
+  "collector_number": "732",
+  "rarity": "common",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Angel",
+  "keywords": [
+   "Flying"
+  ],
+  "oracle_text": "Flying\nWhenever another creature you control enters, you gain 1 life."
+ },
+ {
+  "name": "Vanguard Seraph",
+  "set": "fdn",
+  "collector_number": "28",
+  "rarity": "common",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Angel Warrior",
+  "keywords": [
+   "Flying",
+   "Surveil"
+  ],
+  "oracle_text": "Flying\nWhenever you gain life for the first time each turn, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)"
+ },
+ {
+  "name": "Courageous Goblin",
+  "set": "fdn",
+  "collector_number": "82",
+  "rarity": "common",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "type_line": "Creature \u2014 Goblin",
+  "keywords": [],
+  "oracle_text": "Whenever this creature attacks while you control a creature with power 4 or greater, this creature gets +1/+0 and gains menace until end of turn. (It can't be blocked except by two or more creatures.)"
+ },
+ {
+  "name": "Sun-Blessed Healer",
+  "set": "fdn",
+  "collector_number": "25",
+  "rarity": "uncommon",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Human Cleric",
+  "keywords": [
+   "Lifelink",
+   "Kicker"
+  ],
+  "oracle_text": "Kicker {1}{W} (You may pay an additional {1}{W} as you cast this spell.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nWhen this creature enters, if it was kicked, return target nonland permanent card with mana value 2 or less from your graveyard to the battlefield."
+ },
+ {
+  "name": "Moment of Triumph",
+  "set": "fdn",
+  "collector_number": "500",
+  "rarity": "common",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Instant",
+  "keywords": [],
+  "oracle_text": "Target creature gets +2/+2 until end of turn. You gain 2 life."
+ },
+ {
+  "name": "Felidar Cub",
+  "set": "fdn",
+  "collector_number": "573",
+  "rarity": "common",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Cat Beast",
+  "keywords": [],
+  "oracle_text": "Sacrifice this creature: Destroy target enchantment."
+ },
+ {
+  "name": "Disenchant",
+  "set": "fdn",
+  "collector_number": "572",
+  "rarity": "common",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Instant",
+  "keywords": [],
+  "oracle_text": "Destroy target artifact or enchantment."
+ },
+ {
+  "name": "Crusader of Odric",
+  "set": "fdn",
+  "collector_number": "731",
+  "rarity": "common",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "type_line": "Creature \u2014 Human Soldier",
+  "keywords": [],
+  "oracle_text": "Crusader of Odric's power and toughness are each equal to the number of creatures you control."
+ }
+]

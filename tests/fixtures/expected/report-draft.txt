@@ -1,0 +1,25 @@
+suite: Sunlit Flock
+deck: Sunlit Flock
+format: Kitchen 20
+date: 2026-08-18
+oracle: data-backed (22 cards)
+verdict: red — 9 red / 9 green
+
+red   legality.size — 21 cards, need exactly 20
+red   legality.singleton — over copy limit: Healer's Hawk
+red   legality.mono_color — colors ['R', 'W'], multicolor none
+red   legality.rare_count — 2 rare(s): Exemplar of Light, Giada, Font of Hope
+red   legality.land_count — 7 lands, need 8-9
+green legality.nonbasic_lands — nonbasics all on the allowed list
+red   legality.evergreen — non-evergreen: Sun-Blessed Healer (Kicker)
+red   availability.in_collection — missing: Courageous Goblin (need 1, own 0)
+green manabase.color_coverage — spells need ['R', 'W'], lands make ['B', 'G', 'R', 'U', 'W']
+green curve.average — average 2.29, max 3.0
+green curve.early_plays — 9 nonland cards at mana value <=2, need 4
+green quota.creature — 13 tagged creature, need 8
+green quota.theme — 10 tagged theme, need 6
+red   quota.removal — 1 tagged removal, need 2
+green quota.draw — 2 tagged draw, need 1
+green quota.wincon — 2 tagged wincon, need 1
+green brief.cmc_max — nothing above the cap
+red   consistency.opening_lands — P(>=2 lands in 7) = 0.79, need 0.85
