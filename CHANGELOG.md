@@ -61,8 +61,9 @@ mean for prompt-ware.
   ending red with an honest report and the human's options (loosen the
   Brief, accept the Deck as-is, acquire cards) — and ships a
   ManaBox-importable Deck Block to the Collection home's deck library:
-  nonbasics pinned to the exact owned printing (the fancier owned print when
-  several exist), basics lumped per name last in each Board, inline category
+  nonbasics pinned to the exact owned printing (the fancier print among the
+  copies the Brief's `donor:` lines leave free — a copy committed to another
+  Deck is never pinned), basics lumped per name last in each Board, inline category
   comments, the Maybeboard as the unpinned possibly-unowned wishlist, and
   the short-form Fan Content footer. Copies in existing Decks are committed
   by default: the Brief's `donor:` lines land in the Suite as data, the

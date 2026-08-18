@@ -14,6 +14,8 @@ declined-contention sentence Build must report:
 The Suite's ``availability.in_collection`` Check (the fixed runner) is the
 gate; this script is the builder's lens on the same arithmetic, consulted
 before a card is picked so contention is declined out loud, never silently.
+The ship script (``ship_deck.py``, same skill) imports the row-level helpers
+below so printing pins are drawn from the same free pool, never re-derived.
 
 Usage:
     availability.py --collection EXPORT_CSV
@@ -41,12 +43,32 @@ def unusable(message):
     sys.exit(2)
 
 
+def row_deck(row):
+    """The Deck one Export row's copies are committed to, or None: a row
+    whose Binder Type is ``deck`` belongs to the Deck named by its Binder
+    Name — the committed-by-default rule (issue #54)."""
+    if (row.get("Binder Type") or "").strip() == "deck":
+        return (row.get("Binder Name") or "").strip() or None
+    return None
+
+
+def deck_is_freed(deck, donors):
+    """True when the donor lines free this Deck's copies: a donor: line
+    naming the Deck, or ``donor: all`` freeing everything."""
+    return deck in donors or any(d.lower() == "all" for d in donors)
+
+
 def load_pool(path):
     """Read the Export: (owned counts, committed counts per Deck) by name.
 
     Header-keyed, UTF-8 with BOM tolerance, malformed rows skipped — the
     ingestion posture of spec #46. Returns (owned, committed) where owned is
     {name: total copies} and committed is {name: {deck name: copies}}.
+
+    The fixed runner's ``load_commitments`` (check_deck.py, suite-runner
+    skill) is a deliberate mirror of the committed side of this reading —
+    kept in lockstep by hand, never imported, because skill assets stay
+    self-contained. Edit the two together.
     """
     owned, committed = {}, {}
     try:
@@ -63,11 +85,10 @@ def load_pool(path):
             if not name:
                 continue
             owned[name] = owned.get(name, 0) + quantity
-            if (row.get("Binder Type") or "").strip() == "deck":
-                deck = (row.get("Binder Name") or "").strip()
-                if deck:
-                    decks = committed.setdefault(name, {})
-                    decks[deck] = decks.get(deck, 0) + quantity
+            deck = row_deck(row)
+            if deck:
+                decks = committed.setdefault(name, {})
+                decks[deck] = decks.get(deck, 0) + quantity
     return owned, committed
 
 
@@ -86,11 +107,13 @@ def donors_from_brief(path):
 
 
 BOARD_HEADERS = ("Commander", "Mainboard", "Sideboard", "Maybeboard")
-# Deck-line grammar, mirroring the fixed runner's: a printing pin is
-# "(SET) number" at the end of the line, an inline " // category" comment may
-# trail it. Multi-faced names carry " // " inside the name itself, so the pin
-# is matched on the raw line first and comment-stripping happens from the
-# right — the same reading order as check_deck.py.
+# Deck-line grammar: the same PIN/LUMP regexes and raw-first reading order as
+# the fixed runner's (check_deck.py) — a printing pin is "(SET) number" at the
+# end of the line, matched on the raw line first so multi-faced names carrying
+# " // " re-anchor, then comment-stripping happens from the right. One honest
+# divergence from the runner: a BARE line holding " // " resolves here through
+# the owned names — the whole remainder wins when the Collection owns it —
+# where the runner truncates it to the front face.
 PIN = re.compile(r"^(\d+)\s+(.+?)\s+\(([A-Z0-9]{2,5})\)\s+(\S+)$")
 LUMP = re.compile(r"^(\d+)\s+([^(]+)$")
 
@@ -123,14 +146,14 @@ def deck_wants(path, owned):
         if m:
             qty, name = int(m.group(1)), m.group(2).strip()
         else:
-            m = LUMP.match(line) or LUMP.match(stripped)
-            if not m:
-                continue
-            qty, name = int(m.group(1)), m.group(2).strip()
-            if " // " in line and LUMP.match(line):
-                full = LUMP.match(line).group(2).strip()
-                if full in owned:
-                    name = full
+            full = LUMP.match(line)
+            if full and full.group(2).strip() in owned:
+                qty, name = int(full.group(1)), full.group(2).strip()
+            else:
+                m = LUMP.match(stripped)
+                if not m:
+                    continue
+                qty, name = int(m.group(1)), m.group(2).strip()
         wants[name] = wants.get(name, 0) + qty
     return wants
 
@@ -139,10 +162,8 @@ def free_copies(name, owned, committed, donors):
     """(free, held) for a name: free copies under the donor lines, and the
     {deck: copies} still holding the rest. donor: all frees everything."""
     total = owned.get(name, 0)
-    if any(d.lower() == "all" for d in donors):
-        return total, {}
     held = {deck: qty for deck, qty in committed.get(name, {}).items()
-            if deck not in donors}
+            if not deck_is_freed(deck, donors)}
     return total - sum(held.values()), held
 
 
