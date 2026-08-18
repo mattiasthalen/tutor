@@ -1,10 +1,10 @@
 ---
-status: accepted
+status: accepted, amended by ADR-0007
 ---
 
 # One release channel — the marketplace plugin — with a pinned semver
 
-Claude Code now runs on every surface tutor targets, including the phone (claude.ai/code and the mobile app), so the claude.ai skill-ZIP upload channel is cut: the plugin, installed from this repo's own marketplace, is the sole shipping path. tutor pins an explicit semver in `.claude-plugin/plugin.json` — the sole version authority; the marketplace entry never carries a version — and a release is the deliberate commit that bumps it. This amends ADR-0001, whose "two channels" consequence is dropped; its core (all capability in portable skills, plugin as thin wrapper) stands, and skills must stay free of Claude Code-only dependencies so the ZIP channel can return cheaply if a public audience wants it.
+Claude Code now runs on every surface tutor targets, including the phone (claude.ai/code and the mobile app), so the claude.ai skill-ZIP upload channel is cut: the plugin, installed from this repo's own marketplace, is the sole shipping path. tutor pins an explicit semver in `.claude-plugin/plugin.json` — the sole version authority; the marketplace entry never carries a version — and a release is the deliberate commit that bumps it. This amends ADR-0001, whose "two channels" consequence is dropped; its core (all capability in portable skills, plugin as thin wrapper) stands, ~~and skills must stay free of Claude Code-only dependencies so the ZIP channel can return cheaply if a public audience wants it~~ — amended by ADR-0007: chat is retired as a runtime, so the cheap-return insurance is dropped.
 
 ## Considered options
 

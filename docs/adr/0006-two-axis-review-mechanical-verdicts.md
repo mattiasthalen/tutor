@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted, amended by ADR-0007
 ---
 
 # Review judges along two axes; judgment lives in Findings, aggregation is mechanical
@@ -12,7 +12,7 @@ Review is the judgment counterpart of ADR-0003's Checks, mirroring `/code-review
 - **Re-verifying Checks during Review** — rejected: recounting duplicates the Suite and blurs the ADR-0003 boundary. The one legitimate overlap is judging a target itself mis-set for the Brief.
 - **Hard violations in Review** — rejected by construction: anything deterministic is a Check; every Review finding is a judgment call.
 - **A judged, holistic overall verdict** — rejected: cross-axis reranking is precisely what the two-axis separation exists to prevent; worst-of keeps the merge mechanical.
-- **Code-only review skill (no subagent-less path)** — rejected: ADR-0001's portability rule survives ADR-0004, so the skill keeps a sequential two-pass fallback while the plugin command fans out two parallel subagents.
+- **Code-only review skill (no subagent-less path)** — rejected: ADR-0001's portability rule survives ADR-0004, so the skill keeps a sequential two-pass fallback while the plugin command fans out two parallel subagents. _Amended by ADR-0007: chat is retired, so the fallback's rationale is gone; it may stay as robustness, not as a contract._
 
 ## Consequences
 
