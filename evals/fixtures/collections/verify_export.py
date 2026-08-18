@@ -2,7 +2,7 @@
 """Report the literal facts of a real ManaBox export (issue #16).
 
 Usage:
-    python3 samples/verify_export.py <collection.csv> [<deck.txt>]
+    python3 evals/fixtures/collections/verify_export.py <collection.csv> [<deck.txt>]
 
 Reads the files as bytes first, then prints a Markdown report answering the
 open questions from the ManaBox export research (issue #3): encoding/BOM,

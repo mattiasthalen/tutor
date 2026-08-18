@@ -35,7 +35,7 @@
         "The fixture Oracle scryfall/oracle.jsonl is byte-identical to a fresh offline derivation from the pinned snapshot.",
         "Every Oracle line is name-keyed with mana value, colors, color identity, type line, oracle text, the four sanctioned legalities, and the game_changer flag — no UUIDs, tokens excluded, basics included, multi-faced names flattened with //.",
         "The Oracle's first line records generated_at and the source Export's newest Added watermark.",
-        "Evals never touch the network: no eval or fixture file references the live Scryfall API host except the deliberate refresh script and the snapshot's provenance metadata."
+        "Evals never touch the network: a tripwire scan finds the literal live Scryfall API host string in no eval or fixture file except the deliberate refresh script and the snapshot's provenance metadata."
       ]
     }
   ]
