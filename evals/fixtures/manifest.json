@@ -43,6 +43,11 @@
       "format": "standard",
       "deck": null,
       "pool": "collections/synthetic-standard-pool.csv"
+    },
+    "briefs/archenemy-bolas-villain.txt": {
+      "format": "commander",
+      "deck": null,
+      "pool": null
     }
   },
   "clean_decks": [
