@@ -155,6 +155,42 @@ class PinnedScryfallSnapshotAndOracle(unittest.TestCase):
         self.assertIn("source_export_newest_added", meta)
 
 
+class EvalsStayOffline(unittest.TestCase):
+    """Acceptance: evals run deterministically offline — the live Scryfall
+    API is reachable only from the deliberate refresh script."""
+
+    def test_offline_guarantee_graded_green(self):
+        run_harness("--case", "harness-smoke")
+        grading_path = REPO / "evals" / "results" / "harness-smoke" / "grading.json"
+        grading = json.loads(grading_path.read_text(encoding="utf-8"))
+        matches = [e for e in grading["expectations"] if "network" in e["text"]]
+        self.assertTrue(matches, "no smoke expectation pins the offline guarantee")
+        for e in matches:
+            self.assertTrue(e["passed"], f"expectation red: {e['text']}\n{e['evidence']}")
+
+
+class EvalCasesAreSkillCreatorFormat(unittest.TestCase):
+    """Acceptance: eval cases are authored in the skill-creator eval
+    workflow format (references/schemas.md: evals.json)."""
+
+    def test_evals_json_matches_schema(self):
+        data = json.loads((REPO / "evals" / "evals.json").read_text(encoding="utf-8"))
+        self.assertEqual(data["skill_name"], "tutor")
+        self.assertTrue(data["evals"])
+        seen_ids = set()
+        for case in data["evals"]:
+            self.assertIsInstance(case["id"], int)
+            self.assertNotIn(case["id"], seen_ids, "duplicate eval id")
+            seen_ids.add(case["id"])
+            self.assertTrue(case["prompt"].strip())
+            self.assertTrue(case["expected_output"].strip())
+            self.assertIsInstance(case["files"], list)
+            for rel in case["files"]:
+                self.assertTrue((REPO / rel).is_file(), f"missing eval input file {rel}")
+            self.assertIsInstance(case["expectations"], list)
+            self.assertTrue(all(isinstance(e, str) and e for e in case["expectations"]))
+
+
 class HarnessCanGoRed(unittest.TestCase):
     """Green is only trustworthy if a broken fixture actually turns the run red."""
 
