@@ -12,6 +12,10 @@ _Avoid_: inventory, library (an MTG zone)
 The CSV file ManaBox produces representing the Collection — its digital form. Each card row records where it lives — a binder or one of the owner's ManaBox decks — so an Export carries deck assignments.
 _Avoid_: dump, backup
 
+**Collection home**:
+The folder where the Export, the Oracle, and built Blocks live — the working directory a tutor session runs in. The owner's is a private git repo doubling as a deck library, reachable from the phone; tutor sees only a folder.
+_Avoid_: workspace, vault
+
 **Brief**:
 The statement of intent for a Deck: Format, identity, Power, constraints — including any play-variant asks. Settled with the human before any building.
 _Avoid_: spec, requirements
@@ -37,7 +41,7 @@ A named heuristic on the Standards axis — the format-agnostic baseline every R
 _Avoid_: violation, error
 
 **Block**:
-A re-pasteable fenced code block that carries a Brief, Deck, Review, Suite (with its red/green Report), Table Brief, or Table Review between conversations. The interchange artifact of the paste round-trip.
+A fenced code block that carries a Brief, Deck, Review, Suite (with its red/green Report), Table Brief, or Table Review between sessions. Lives as a file in the Collection home; a pasted Block is always accepted and beats the file on conflict.
 _Avoid_: snippet, export (that's ManaBox's)
 
 **Board**:

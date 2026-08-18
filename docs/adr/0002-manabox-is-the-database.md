@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted, superseded in part by ADR-0007
 ---
 
 # ManaBox is the database: state travels by paste round-trip
@@ -10,4 +10,4 @@ Chat conversations share no files, and the owner already keeps the collection an
 
 - ManaBox import/export fidelity is load-bearing; the Deck Block must be a format ManaBox actually imports.
 - Upgrading a deck is a fresh conversation seeded with a current Export plus existing Blocks — never a mutation of stored state.
-- A claude.ai Project holding the latest Export is a convenience channel, not a requirement; plain paste must always work.
+- ~~A claude.ai Project holding the latest Export is a convenience channel, not a requirement; plain paste must always work.~~ Superseded by ADR-0007: state lives as files in the Collection home; a pasted Export or Block stays legal input and beats the file on conflict. ManaBox remains the Collection's source of truth and the Deck Block stays ManaBox-importable.

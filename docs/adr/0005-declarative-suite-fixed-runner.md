@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted, amended by ADR-0007
 ---
 
 # The Suite is declarative data interpreted by a fixed runner
@@ -17,6 +17,6 @@ At Build start the Suite is generated as one declarative artifact: snapshotted F
 - The Suite artifact carries `profile:` (targets snapshot), `quotas:`, `constraints:`, and `roles:` sections plus the check list: parameters live in data, predicates live in the runner. Judgment-flavored lists (e.g. which keywords count as evergreen) are profile data, changed by editing a line of data, never runner logic.
 - The runner is a portable skill asset: stdlib-only, with its own small YAML-subset parser, and free of Claude Code-only dependencies (per ADR-0004). The prototype ran the same Suite through two independent interpreters (Python and JavaScript) with identical verdicts as the portability check.
 - The red/green report is a Block: a flat `suite:`/`deck:`/`format:`/`date:`/`oracle:` head, one `verdict:` line, then one `red|green <check-id> — evidence` line per Check, findings naming cards. It reads like the Review Block and diffs cleanly between runs.
-- In Claude Code the Suite lives as a file beside the Deck; where no file persistence exists it travels the paste round-trip as a Block — one format, two carriages. The Block glossary entry widens accordingly.
+- In Claude Code the Suite lives as a file beside the Deck~~; where no file persistence exists it travels the paste round-trip as a Block — one format, two carriages~~ (amended by ADR-0007: chat is retired, so the file is the carriage; a pasted Suite Block stays legal input). The Block glossary entry widens accordingly.
 - Amends ADR-0003: "an empty Deck starts all red" is softened — every size, mana-base, curve, and quota Check starts red, while constraint-shaped Checks (singleton, legality lists, availability) may pass vacuously at zero cards. Vacuous green is honest; no artificial red-until-meaningful guard is added.
 - Evidence: `prototypes/suite-shape/` — the fixture Suite, both interpreters, the three-stage runs (empty / planted-violations draft / green final), and the interactive demo.
