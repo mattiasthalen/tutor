@@ -19,7 +19,8 @@
         "evals/fixtures/decks/tatyova-landfall.txt",
         "evals/fixtures/decks/tatyova-landfall-flawed.txt",
         "evals/fixtures/manifest.json",
-        "evals/fixtures/scryfall/snapshot.jsonl"
+        "evals/fixtures/scryfall/snapshot.jsonl",
+        "evals/fixtures/scryfall/oracle.jsonl"
       ],
       "expectations": [
         "The realism fixture collections/real-collection.csv parses header-keyed as CSV with exactly 577 data rows.",
@@ -30,7 +31,10 @@
         "Fixture Briefs parse as flat key: value Blocks with the required format: line and only canonical Brief keys.",
         "Fixture Decks parse as ManaBox-importable Deck Blocks: title comment, Board headers, quantity lines with set-and-number pins on nonbasics.",
         "Some fixture Decks carry planted flaws for Review evals, each registered in the manifest and naming cards present in its Deck (or absent from every Collection for availability flaws).",
-        "The pinned Scryfall snapshot covers every card the fixtures reference and nothing else, with its capture metadata on line one."
+        "The pinned Scryfall snapshot covers every card the fixtures reference and nothing else, with its capture metadata on line one.",
+        "The fixture Oracle scryfall/oracle.jsonl is byte-identical to a fresh offline derivation from the pinned snapshot.",
+        "Every Oracle line is name-keyed with mana value, colors, color identity, type line, oracle text, the four sanctioned legalities, and the game_changer flag — no UUIDs, tokens excluded, basics included, multi-faced names flattened with //.",
+        "The Oracle's first line records generated_at and the source Export's newest Added watermark."
       ]
     }
   ]

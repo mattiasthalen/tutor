@@ -147,6 +147,13 @@ class PinnedScryfallSnapshotAndOracle(unittest.TestCase):
     def test_refresh_script_is_the_only_network_path(self):
         self.assertTrue((self.scryfall / "refresh_snapshot.py").is_file())
 
+    def test_fixture_oracle_graded_green(self):
+        self.graded_green("Oracle")
+        first = (self.scryfall / "oracle.jsonl").open(encoding="utf-8").readline()
+        meta = json.loads(first)["oracle_meta"]
+        self.assertIn("generated_at", meta)
+        self.assertIn("source_export_newest_added", meta)
+
 
 class HarnessCanGoRed(unittest.TestCase):
     """Green is only trustworthy if a broken fixture actually turns the run red."""
