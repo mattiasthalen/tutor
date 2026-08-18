@@ -410,6 +410,34 @@ def check_oracle_watermark(ctx):
     )
 
 
+SCRYFALL_HOST = "api." + "scryfall.com"  # split so this file stays off the list
+NETWORK_ALLOWED = {
+    "fixtures/scryfall/refresh_snapshot.py",  # the one deliberate network path
+    "fixtures/scryfall/snapshot.jsonl",       # records api_host as provenance
+}
+
+
+def check_offline_guarantee(_ctx):
+    offenders = []
+    for path in sorted(EVALS_DIR.rglob("*")):
+        if not path.is_file() or "results" in path.parts:
+            continue
+        relative = path.relative_to(EVALS_DIR).as_posix()
+        if relative in NETWORK_ALLOWED:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        if SCRYFALL_HOST in text:
+            offenders.append(relative)
+    return not offenders, (
+        f"files reaching for the live Scryfall host: {offenders}"
+        if offenders
+        else f"only {sorted(NETWORK_ALLOWED)} name the Scryfall host; every eval path is offline"
+    )
+
+
 # --- Registry: exact expectation text -> fixed predicate --------------------
 # Keys are pinned verbatim to the strings in evals.json; editing a wording
 # means editing both, deliberately. Unregistered expectations are soft.
@@ -439,6 +467,8 @@ EXPECTATION_CHECKS = {
         check_oracle_shape,
     "The Oracle's first line records generated_at and the source Export's newest Added watermark.":
         check_oracle_watermark,
+    "Evals never touch the network: no eval or fixture file references the live Scryfall API host except the deliberate refresh script and the snapshot's provenance metadata.":
+        check_offline_guarantee,
 }
 
 
