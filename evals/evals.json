@@ -55,6 +55,38 @@
         "An Export row whose Scryfall ID the snapshot no longer knows still resolves through its Name + Set code.",
         "Run as /tutor:oracle in a Collection home, the skill's closing report surfaces the two staleness signals and marks Scryfall legality data informational-only, without implying Scryfall endorsement."
       ]
+    },
+    {
+      "id": 3,
+      "prompt": "I want a new Commander deck around Tatyova, Benthic Druid — simic, lands matter, steady card draw, nothing above 6 mana, and no infinite combos. My Baylen deck can be cannibalized for it. Scripted answers for the rest of the brief conversation: name it Tatyova Landfall; power 2; yes, the Export is current; keep every other deck committed.",
+      "expected_output": "The brief conversation fires, asks the single Export/Oracle freshness question, and ends with a Brief Block equivalent to evals/fixtures/briefs/commander-tatyova-landfall.txt — flat key: value lines, format: commander, the mechanical ask as a constraint: line and the fuzzy asks in notes:, donor: Baylen, the Haymaker recognized from the Export's deck rows, no budget key — validated by skills/brief/scripts/validate_brief.py and written to the Collection home.",
+      "files": [
+        "skills/brief/SKILL.md",
+        "commands/brief.md",
+        "skills/brief/scripts/validate_brief.py",
+        "skills/brief/scripts/freshness.py",
+        "evals/fixtures/collections/real-collection.csv",
+        "evals/fixtures/scryfall/oracle.jsonl",
+        "evals/fixtures/briefs/commander-tatyova-landfall.txt",
+        "evals/fixtures/briefs/kitchen20-sunlit-whiskers.txt",
+        "evals/fixtures/briefs/standard-ember-stampede.txt",
+        "evals/fixtures/briefs/archenemy-bolas-villain.txt",
+        "evals/fixtures/manifest.json"
+      ],
+      "expectations": [
+        "The /tutor:brief command is a thin wrapper handing off to the brief skill, whose metadata.version matches the plugin manifest's pinned version.",
+        "The brief skill's description fires from natural language: it names deck-intent triggers beyond the /tutor:brief command itself.",
+        "Every fixture Brief validates against the brief skill's validator, donors recognized from its manifest-paired Export's deck rows.",
+        "The validator holds the Power ladder: a 1-5 number with trailing free text passes and an out-of-ladder number fails.",
+        "The validator holds donor grammar: donor: all passes and an unrecognized donor Deck name fails against the Export's deck rows.",
+        "No fixture Brief declares a play variant as its format:, and the Archenemy fixture expresses the variant in play variant: with the Centerpiece naming the villain.",
+        "The freshness helper surfaces the fixture Export's newest Added and both Oracle staleness signals deterministically, and degrades gracefully when the Oracle is absent.",
+        "The brief skill's text pins the grammar it must emit: all nine canonical keys, only format required, no budget key, Power defaulting to 2, one freshness question, and a closing handoff to Build.",
+        "Invoked from natural language alone — no /tutor:brief command typed — the skill fires and opens the brief conversation.",
+        "Run with the scripted answers, the conversation ends in a Brief Block equivalent to the Tatyova fixture Brief, written to the Collection home.",
+        "Mechanical asks land as constraint: lines and fuzzy asks land in notes: — each where it can be honestly enforced.",
+        "The conversation asks the Export/Oracle freshness question exactly once."
+      ]
     }
   ]
 }

@@ -41,6 +41,7 @@ EVALS_DIR = pathlib.Path(__file__).resolve().parent
 CASE_NAMES = {
     1: "harness-smoke",
     2: "oracle-smoke",
+    3: "brief-smoke",
 }
 
 
@@ -642,6 +643,221 @@ def check_oracle_skill_fallback(ctx):
         problems.append(f"expected [{card['name']}] via fallback, got {names}")
     return not problems, "; ".join(problems) or (
         f"an unknown Scryfall ID resolved through Name + Set code: {card['name']}"
+# --- Brief skill predicates (issue #52) -------------------------------------
+# The brief conversation is prompt-ware: its behavioral halves (fires from
+# natural language; scripted answers yield the Brief) stay soft, dev-time
+# judged. These predicates grade the deterministic shadows — wiring, the
+# validator and freshness scripts (wrapped, never re-implemented), and the
+# fixture Briefs those scripts must accept.
+
+BRIEF_SKILL_PATH = REPO_ROOT / "skills" / "brief" / "SKILL.md"
+BRIEF_COMMAND_PATH = REPO_ROOT / "commands" / "brief.md"
+BRIEF_VALIDATOR = REPO_ROOT / "skills" / "brief" / "scripts" / "validate_brief.py"
+BRIEF_FRESHNESS = REPO_ROOT / "skills" / "brief" / "scripts" / "freshness.py"
+PLUGIN_MANIFEST = REPO_ROOT / ".claude-plugin" / "plugin.json"
+
+BRIEF_CANONICAL_KEYS = (
+    "name", "format", "centerpiece", "identity", "play variant",
+    "power", "constraint", "donor", "notes",
+)
+PLAY_VARIANTS = {"archenemy", "two-headed giant", "jumpstart 40"}
+
+
+def run_brief_script(script, *args):
+    import subprocess
+
+    return subprocess.run(
+        [sys.executable, str(script), *[str(a) for a in args]],
+        capture_output=True, text=True, timeout=120,
+    )
+
+
+def check_brief_wiring(_ctx):
+    problems = []
+    command = BRIEF_COMMAND_PATH.read_text(encoding="utf-8")
+    if "skills/brief/SKILL.md" not in command:
+        problems.append("commands/brief.md never hands off to skills/brief/SKILL.md")
+    skill = BRIEF_SKILL_PATH.read_text(encoding="utf-8")
+    pinned = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))["version"]
+    m = re.search(r"^metadata:\n[ \t]+version:[ \t]*(\S+)", skill, re.MULTILINE)
+    if not m:
+        problems.append("skills/brief/SKILL.md carries no metadata.version")
+    elif m.group(1) != pinned:
+        problems.append(
+            f"skill metadata.version {m.group(1)} != pinned plugin version {pinned}"
+        )
+    return not problems, "; ".join(problems) or (
+        f"/tutor:brief wraps skills/brief/SKILL.md, versioned {pinned} in lockstep"
+    )
+
+
+def check_brief_nl_triggers(_ctx):
+    """Tripwire, not proof: the structural half of "fires from natural
+    language" is a description naming deck intents beyond the command; the
+    firing itself is the soft expectation, judged at dev time."""
+    skill = BRIEF_SKILL_PATH.read_text(encoding="utf-8")
+    m = re.search(r"^description:[ \t]*(.+)$", skill, re.MULTILINE)
+    if not m:
+        return False, "skills/brief/SKILL.md frontmatter has no description line"
+    description = m.group(1)
+    missing = [n for n in ("/tutor:brief", "new deck", "deck idea") if n not in description]
+    return not missing, (
+        f"description lacks {missing}" if missing
+        else "the description names /tutor:brief plus natural-language deck intents"
+    )
+
+
+def check_fixture_briefs_validate(ctx):
+    manifest = json.loads(ctx.path("manifest.json").read_text(encoding="utf-8"))
+    pairings = manifest.get("briefs", {})
+    briefs = sorted(ctx.path("briefs").glob("*.txt"))
+    if not briefs:
+        return False, "no fixture Briefs to validate"
+    problems, donor_checked = [], 0
+    for brief in briefs:
+        args = [brief]
+        pool = pairings.get(f"briefs/{brief.name}", {}).get("pool")
+        if pool:
+            args += ["--collection", ctx.path(pool)]
+            donor_checked += 1
+        result = run_brief_script(BRIEF_VALIDATOR, *args)
+        if result.returncode != 0:
+            verdict = result.stdout.strip() or result.stderr.strip()
+            problems.append(f"{brief.name}: {verdict[:200]}")
+    return not problems, "; ".join(problems) or (
+        f"{len(briefs)} fixture Briefs valid, {donor_checked} checked against their paired Export"
+    )
+
+
+def check_power_ladder(_ctx):
+    import tempfile
+
+    problems = []
+    with tempfile.TemporaryDirectory() as tmp:
+        good = pathlib.Path(tmp) / "good.txt"
+        good.write_text("format: commander\npower: 4, big villain turns\n", encoding="utf-8")
+        bad = pathlib.Path(tmp) / "bad.txt"
+        bad.write_text("format: commander\npower: 6\n", encoding="utf-8")
+        good_run = run_brief_script(BRIEF_VALIDATOR, good)
+        bad_run = run_brief_script(BRIEF_VALIDATOR, bad)
+    if good_run.returncode != 0:
+        problems.append(
+            f"'power: 4, big villain turns' rejected: {good_run.stdout.strip()[:200]}"
+        )
+    if bad_run.returncode != 1:
+        problems.append(f"'power: 6' not rejected (exit {bad_run.returncode})")
+    return not problems, "; ".join(problems) or (
+        "trailing free text passes, an out-of-ladder number fails — the 1-5 number is canonical"
+    )
+
+
+def check_donor_grammar(ctx):
+    import tempfile
+
+    export = ctx.path("collections/real-collection.csv")
+    problems = []
+    with tempfile.TemporaryDirectory() as tmp:
+        all_brief = pathlib.Path(tmp) / "all.txt"
+        all_brief.write_text("format: commander\ndonor: all\n", encoding="utf-8")
+        unknown = pathlib.Path(tmp) / "unknown.txt"
+        unknown.write_text("format: commander\ndonor: No Such Deck\n", encoding="utf-8")
+        all_run = run_brief_script(BRIEF_VALIDATOR, all_brief, "--collection", export)
+        unknown_run = run_brief_script(BRIEF_VALIDATOR, unknown, "--collection", export)
+    if all_run.returncode != 0:
+        problems.append(f"'donor: all' rejected: {all_run.stdout.strip()[:200]}")
+    if unknown_run.returncode != 1:
+        problems.append(
+            f"an unrecognized donor Deck name passed (exit {unknown_run.returncode})"
+        )
+    return not problems, "; ".join(problems) or (
+        "donor: all frees the whole Collection; an unknown Deck name is rejected "
+        "against the Export's deck rows"
+    )
+
+
+def check_play_variants_never_formats(ctx):
+    problems, archenemy_fixture = [], None
+    for brief in sorted(ctx.path("briefs").glob("*.txt")):
+        fields = {}
+        for line in brief.read_text(encoding="utf-8").splitlines():
+            key, sep, value = line.partition(":")
+            if sep and value.strip():
+                fields.setdefault(key, value.strip())
+        if fields.get("format", "").lower() in PLAY_VARIANTS:
+            problems.append(
+                f"{brief.name}: format: {fields['format']!r} is a play variant, never a Format"
+            )
+        if fields.get("play variant", "").lower() == "archenemy":
+            archenemy_fixture = brief.name
+            if not fields.get("centerpiece"):
+                problems.append(f"{brief.name}: the Archenemy Brief names no villain Centerpiece")
+            if not fields.get("format"):
+                problems.append(f"{brief.name}: the Archenemy Brief is still built to some Format")
+    if archenemy_fixture is None:
+        problems.append("no fixture Brief expresses Archenemy through play variant:")
+    return not problems, "; ".join(problems) or (
+        f"{archenemy_fixture} rides play variant: archenemy on a Format with the villain "
+        "as Centerpiece; no Brief misfiles a variant as its Format"
+    )
+
+
+def check_freshness_helper(ctx):
+    import datetime
+
+    export = ctx.path("collections/real-collection.csv")
+    oracle = ctx.path("scryfall/oracle.jsonl")
+    with open(oracle, encoding="utf-8") as handle:
+        meta = json.loads(handle.readline())["oracle_meta"]
+    base = datetime.date.fromisoformat(meta["generated_at"][:10])
+    fresh_today = (base + datetime.timedelta(days=2)).isoformat()
+    stale_today = (base + datetime.timedelta(days=40)).isoformat()
+
+    problems = []
+    fresh = run_brief_script(
+        BRIEF_FRESHNESS, "--collection", export, "--oracle", oracle, "--today", fresh_today
+    )
+    if (
+        fresh.returncode != 0
+        or "export newest added:" not in fresh.stdout
+        or "signal export-newer-than-oracle: no" not in fresh.stdout
+    ):
+        problems.append(
+            f"fresh Export/Oracle pair misreported (exit {fresh.returncode}): "
+            f"{(fresh.stdout or fresh.stderr).strip()[:200]}"
+        )
+    stale = run_brief_script(
+        BRIEF_FRESHNESS, "--collection", export, "--oracle", oracle, "--today", stale_today
+    )
+    if stale.returncode != 1 or "signal oracle-older-than-30-days: yes" not in stale.stdout:
+        problems.append(
+            f"a 40-day-old Oracle raised no staleness signal (exit {stale.returncode})"
+        )
+    absent = run_brief_script(BRIEF_FRESHNESS, "--collection", export, "--today", fresh_today)
+    if absent.returncode != 0 or "oracle: absent" not in absent.stdout:
+        problems.append(f"an absent Oracle did not degrade gracefully (exit {absent.returncode})")
+    return not problems, "; ".join(problems) or (
+        "newest Added surfaced, the 30-day signal fires on cue, and an absent Oracle degrades gracefully"
+    )
+
+
+def check_brief_skill_content(_ctx):
+    """Tripwire, not proof: the skill is prompt-ware judged by its artifacts;
+    these needles keep the load-bearing grammar sentences from silently
+    vanishing in an edit."""
+    text = BRIEF_SKILL_PATH.read_text(encoding="utf-8")
+    needles = [f"{key}:" for key in BRIEF_CANONICAL_KEYS] + [
+        "Only `format` is required",
+        "no `budget:` key",
+        "defaults to 2",
+        "freshness question",
+        "recognized by shape alone",
+        "/tutor:build",
+    ]
+    missing = [n for n in needles if n not in text]
+    return not missing, (
+        f"skills/brief/SKILL.md lacks {missing}" if missing
+        else "all nine canonical keys, the format-only requirement, the budget ban, "
+             "the Power default, the single freshness question, and the Build handoff are pinned"
     )
 
 
@@ -684,6 +900,22 @@ EXPECTATION_CHECKS = {
         check_oracle_skill_tolerance,
     "An Export row whose Scryfall ID the snapshot no longer knows still resolves through its Name + Set code.":
         check_oracle_skill_fallback,
+    "The /tutor:brief command is a thin wrapper handing off to the brief skill, whose metadata.version matches the plugin manifest's pinned version.":
+        check_brief_wiring,
+    "The brief skill's description fires from natural language: it names deck-intent triggers beyond the /tutor:brief command itself.":
+        check_brief_nl_triggers,
+    "Every fixture Brief validates against the brief skill's validator, donors recognized from its manifest-paired Export's deck rows.":
+        check_fixture_briefs_validate,
+    "The validator holds the Power ladder: a 1-5 number with trailing free text passes and an out-of-ladder number fails.":
+        check_power_ladder,
+    "The validator holds donor grammar: donor: all passes and an unrecognized donor Deck name fails against the Export's deck rows.":
+        check_donor_grammar,
+    "No fixture Brief declares a play variant as its format:, and the Archenemy fixture expresses the variant in play variant: with the Centerpiece naming the villain.":
+        check_play_variants_never_formats,
+    "The freshness helper surfaces the fixture Export's newest Added and both Oracle staleness signals deterministically, and degrades gracefully when the Oracle is absent.":
+        check_freshness_helper,
+    "The brief skill's text pins the grammar it must emit: all nine canonical keys, only format required, no budget key, Power defaulting to 2, one freshness question, and a closing handoff to Build.":
+        check_brief_skill_content,
 }
 
 

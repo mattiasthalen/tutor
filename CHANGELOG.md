@@ -23,3 +23,10 @@ mean for prompt-ware.
   Scryfall's collection endpoint with a Name + Set code fallback for migrated
   IDs, and a first metadata line carrying the two staleness signals. Legality
   data is informational only. (#51)
+- Brief skill: `/tutor:brief` settles the Brief — Format, identity, Power,
+  constraints, Donor Decks, and play-variant asks — in one human-in-the-loop
+  conversation, asks the single Export/Oracle freshness question once, and
+  ends with a validated flat `key: value` Brief Block written to the
+  Collection home, handing off to Build. Ships stdlib-only helpers for Brief
+  validation (donor recognition included) and freshness signals, plus the
+  `brief-smoke` offline eval case. (#52)
