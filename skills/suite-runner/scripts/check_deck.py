@@ -99,7 +99,7 @@ LUMP = re.compile(r"^(\d+)\s+([^(]+)$")
 def parse_deck(text):
     name, board, cards = None, None, []   # cards: (qty, name)
     for raw in text.splitlines():
-        line = raw.split(" // ")[0].strip() if " // " in raw else raw.strip()
+        line = raw.strip()
         if not line:
             continue
         if line.startswith("//"):
@@ -111,7 +111,12 @@ def parse_deck(text):
             continue
         if board == "Maybeboard":     # wishlist: not part of the playable Deck
             continue
-        m = PIN.match(line) or LUMP.match(line)
+        # Multi-faced names are flattened with " // " (the Oracle's own
+        # vocabulary), so a pinned line is matched raw first — the trailing
+        # "(SET) number" anchors the name — and only then is one trailing
+        # " // comment" stripped for pinned-with-comment and bare lines.
+        stripped = line.rsplit(" // ", 1)[0].strip() if " // " in line else line
+        m = PIN.match(line) or PIN.match(stripped) or LUMP.match(stripped)
         if m:
             cards.append((int(m.group(1)), m.group(2).strip()))
     return name or "Untitled", cards
@@ -138,6 +143,24 @@ def load_collection(path):
         for row in csv.DictReader(f):
             counts[row["Name"]] = counts.get(row["Name"], 0) + int(row.get("Quantity", 1))
     return counts
+
+def load_commitments(path):
+    """Copies already committed to existing Decks: Export rows with Binder
+    Type `deck` belong to the Deck named by Binder Name. Returns
+    {card name: {deck name: copies}}; empty wherever the Export carries no
+    binder columns. Read only when the Suite's constraints carry a donors
+    entry — the contention-aware availability Check (issue #54)."""
+    committed = {}
+    with open(path, newline="") as f:
+        for row in csv.DictReader(f):
+            if (row.get("Binder Type") or "").strip() != "deck":
+                continue
+            deck = (row.get("Binder Name") or "").strip()
+            if not deck:
+                continue
+            decks = committed.setdefault(row["Name"], {})
+            decks[deck] = decks.get(deck, 0) + int(row.get("Quantity", 1))
+    return committed
 
 def is_land(card):
     return "Land" in card.get("type_line", "")
@@ -178,7 +201,7 @@ RARITY_ORDER = {"common": 0, "uncommon": 1, "rare": 2, "mythic": 3}
 
 # ---------- the Checks (fixed predicates; every parameter comes from the Suite) ----------
 
-def run_checks(suite, deck_cards, oracle, collection):
+def run_checks(suite, deck_cards, oracle, collection, commitments=None):
     p, q, cons, roles = suite["profile"], suite["quotas"], suite["constraints"], suite["roles"]
     # The Suite's check list decides what runs (ADR 0005: check ids resolve to
     # fixed predicates) — a Suite carries only the parameters its own checks
@@ -265,7 +288,28 @@ def run_checks(suite, deck_cards, oracle, collection):
         need = {}
         for qty, nm in deck_cards:
             need[nm] = need.get(nm, 0) + qty
-        short = sorted(f"{nm} (need {n}, own {collection.get(nm, 0)})" for nm, n in need.items() if collection.get(nm, 0) < n)
+        # Contention-aware when the Suite says so (issue #54): a donors entry
+        # under constraints — data, never code — turns on committed-by-default:
+        # deck-row copies count only when their Deck is a donor ('all' frees
+        # every Deck). A Suite without the key keeps the plain owned count.
+        donors = cons.get("donors")
+        donor_names = None if donors is None else {str(d).strip() for d in donors}
+        if donor_names is None or any(d.lower() == "all" for d in donor_names):
+            free = dict(collection)
+            held_by = {}
+        else:
+            held_by = {nm: {deck: q for deck, q in decks.items() if deck not in donor_names}
+                       for nm, decks in (commitments or {}).items()}
+            free = {nm: collection.get(nm, 0) - sum(held_by.get(nm, {}).values())
+                    for nm in collection}
+        def shortfall(nm, n):
+            owned = collection.get(nm, 0)
+            held = held_by.get(nm)
+            if not held or owned == 0:
+                return f"{nm} (need {n}, own {owned})"
+            return (f"{nm} (need {n}, own {owned}, free {max(free.get(nm, 0), 0)} "
+                    f"— committed to {', '.join(sorted(held))})")
+        short = sorted(shortfall(nm, n) for nm, n in need.items() if free.get(nm, 0) < n)
         check("availability.in_collection", not short, "every card owned" if not short else f"missing: {'; '.join(short)}")
 
     if "manabase.color_coverage" in wanted:
@@ -387,9 +431,11 @@ def main():
 
     oracle = load_oracle(args.oracle)
     collection = load_collection(args.collection)
+    commitments = (load_commitments(args.collection)
+                   if suite.get("constraints", {}).get("donors") is not None else None)
     with open(args.deck) as f:
         deck_name, deck_cards = parse_deck(f.read())
-    results, unknown = run_checks(suite, deck_cards, oracle, collection)
+    results, unknown = run_checks(suite, deck_cards, oracle, collection, commitments)
     print(report(suite, deck_name, results, unknown, len(oracle), run_date))
     sys.exit(0 if all(ok for ok, _ in results.values()) else 1)
 

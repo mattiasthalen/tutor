@@ -1,5 +1,5 @@
 ---
-description: Start a Build from a settled Brief — generate the Suite and show it honestly red before any card is picked
+description: Build a Deck from a settled Brief — generate the Suite before any card is picked, build owned cards until it is green (or end red honestly), and ship the ManaBox-importable Deck Block
 argument-hint: [brief name]
 ---
 

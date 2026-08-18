@@ -40,6 +40,8 @@ constraints:
   donors:
     # brief: donor: Baylen, the Haymaker
     - Baylen, the Haymaker
+    # brief: donor: Tatyova, Benthic Druid
+    - Tatyova, Benthic Druid
   must_include:
     # brief: centerpiece: Tatyova, Benthic Druid
     - Tatyova, Benthic Druid
@@ -47,6 +49,74 @@ constraints:
 roles:
   # Card -> Role tags: judgment recorded once per card as Build tags it.
   # Empty until the Build picks and tags its first card.
+  Aetherspouts: [wipe, removal]
+  Aggressive Mammoth: [other]
+  Arbor Colossus: [removal]
+  Arcane Epiphany: [draw]
+  Biogenic Upgrade: [wincon]
+  Broken Wings: [removal]
+  Courser of Kruphix: [ramp, theme]
+  Curse of the Swine: [wipe, removal]
+  Divination: [draw]
+  Druid of the Cowl: [ramp]
+  Elvish Archdruid: [ramp]
+  Elvish Mystic: [ramp]
+  Elvish Regrower: [other]
+  Embrace the Paradox: [draw, theme]
+  Emeritus of Abundance // Regrowth: [other]
+  Essence Scatter: [removal]
+  Exclusion Mage: [removal]
+  Fated Intervention: [other]
+  Fecund Greenshell: [draw, theme]
+  Font of Fertility: [ramp]
+  Forest: [land]
+  Fountainport Bell: [theme]
+  Genesis Hydra: [other]
+  Glorious Decay: [removal]
+  Griptide: [removal]
+  Heaped Harvest: [ramp]
+  Horizon Chimera: [other]
+  Hydra Broodmaster: [wincon]
+  Hydro-Channeler: [ramp]
+  Into the Flood Maw: [removal]
+  Into the Roil: [removal]
+  Island: [land]
+  Joraga Invocation: [wincon]
+  Karametra's Acolyte: [ramp]
+  Kiora's Follower: [ramp]
+  Lilysplash Mentor: [other]
+  Llanowar Elves: [ramp]
+  Longstalk Brawl: [removal]
+  Mystic Archaeologist: [draw]
+  Nemesis of Mortals: [wincon]
+  Nessian Game Warden: [draw]
+  New Horizons: [ramp]
+  Noxious Newt: [ramp]
+  Nykthos, Shrine to Nyx: [land, ramp]
+  Nylea's Disciple: [other]
+  Oakhollow Village: [land]
+  Omenspeaker: [other]
+  Paradox Surveyor: [draw, theme]
+  Pawpatch Formation: [removal, draw]
+  Plummet: [removal]
+  Pond Prophet: [draw]
+  Prognostic Sphinx: [other]
+  Quick Study: [draw]
+  Reclamation Sage: [removal]
+  Scrapshooter: [removal]
+  Shared Roots: [ramp]
+  Stock Up: [draw]
+  Studious First-Year // Rampant Growth: [ramp]
+  Tatyova, Benthic Druid: [draw, theme]
+  Temple of Mystery: [land]
+  Thassa's Emissary: [draw]
+  Thornweald Archer: [other]
+  Thrashing Brontodon: [removal]
+  Three Tree Rootweaver: [ramp]
+  Topiary Lecturer: [other]
+  Uncharted Haven: [land]
+  Vastlands Scavenger // Bind to Life: [other]
+  Voyaging Satyr: [ramp]
 
 checks:
   # The Suite: every id resolves to a fixed predicate in the runner (or a

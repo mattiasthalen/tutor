@@ -1,0 +1,25 @@
+suite: Tatyova Landfall
+deck: Tatyova Landfall
+format: Commander
+date: 2026-08-18
+oracle: data-backed (436 cards)
+verdict: green — 0 red / 18 green
+
+green legality.size — 100 cards, need exactly 100
+green legality.singleton — no nonland above 1 copy
+green legality.color_identity — every card inside ['G', 'U']
+green legality.banlist — every card legal in commander
+green legality.game_changers — 0 Game Changers, limit 0
+green legality.land_count — 38 lands, need 35-40
+green availability.in_collection — every card owned
+green manabase.color_coverage — spells need ['G', 'U'], lands make ['B', 'C', 'G', 'R', 'U', 'W']
+green curve.average — average 3.13, max 3.5
+green curve.early_plays — 25 nonland cards at mana value <=2, need 12
+green quota.ramp — 17 tagged ramp, need 10
+green quota.draw — 13 tagged draw, need 10
+green quota.removal — 16 tagged removal, need 8
+green quota.wipe — 2 tagged wipe, need 2
+green quota.wincon — 4 tagged wincon, need 2
+green brief.cmc_max — nothing above the cap
+green brief.includes — all required cards present
+green consistency.opening_lands — P(>=2 lands in 7) = 0.82, need 0.77

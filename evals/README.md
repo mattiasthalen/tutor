@@ -58,6 +58,11 @@ flaw; the smoke case cross-checks it.
 - `fixtures/briefs/`, `fixtures/decks/` — fixture Brief Blocks and Deck
   Blocks; the `*-flawed.txt` Decks carry planted flaws for Review evals,
   each registered in the manifest.
+- `fixtures/build/` — Build's committed reference artifacts around the
+  fixture Tatyova Brief: the generated Suite and red empty-Deck report
+  (Build starts red), and the finished state — the Upgrade Brief, the built
+  Suite with its recorded Role tags, the shipped ManaBox-importable Deck
+  Block, and the all-green report (Build ends green).
 - `fixtures/scryfall/` — the pinned Scryfall snapshot (`snapshot.jsonl`)
   covering exactly the fixture cards, and the fixture Oracle
   (`oracle.jsonl`) derived from it byte-reproducibly by `derive_oracle.py`.
