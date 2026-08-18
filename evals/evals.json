@@ -116,6 +116,42 @@
         "Run live, /tutor:build walks a Collection home from Brief to written Suite and red report, explaining vacuous green honestly.",
         "Role tagging judgment is recorded once per card in the Suite's roles: section as Build fills the Deck, and quota Checks count those tags mechanically."
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "Review the fixture Tatyova Deck in a Collection home: fan out the two review axes (Standards, Brief) over the Deck, its Brief, and its Suite report, assemble the Review Block mechanically, and prove the planted Review-class flaws in the Review-flawed fixture Deck are Review territory the Suite cannot see.",
+      "expected_output": "A Review Block — deck: and date: reference lines, one overall verdict: line, then a standards: and a brief: section side by side, each with its own arithmetic verdict and at most five Findings worst first naming cards — written to the Collection home, closing instructions matching the Verdict, the Deck untouched.",
+      "files": [
+        "skills/review/SKILL.md",
+        "commands/review.md",
+        "skills/review/scripts/assemble_review.py",
+        "skills/build/profiles/commander.yaml",
+        "skills/suite-runner/scripts/check_deck.py",
+        "evals/fixtures/briefs/commander-tatyova-landfall.txt",
+        "evals/fixtures/decks/tatyova-landfall.txt",
+        "evals/fixtures/decks/tatyova-landfall-review-flawed.txt",
+        "evals/fixtures/decks/tatyova-landfall-flawed.txt",
+        "evals/fixtures/build/tatyova-landfall.suite.yaml",
+        "evals/fixtures/scryfall/oracle.jsonl",
+        "evals/fixtures/collections/real-collection.csv",
+        "evals/fixtures/manifest.json"
+      ],
+      "expectations": [
+        "Verdicts are arithmetic over Findings, hard-graded through the assembler: any blocker makes an axis rebuild, only notes playable, clean ship, the overall Verdict is the worst axis, a blocker past the display cap still rebuilds, and the same Findings assemble to the same bytes — no fresh judgment in aggregation.",
+        "The assembled Review Block carries deck: and date: reference lines, one overall verdict: line, then one section per axis — standards: first, brief: second, side by side, never merged or reranked — each with its own verdict and Findings naming cards.",
+        "Each axis shows at most five Findings, worst first, with a one-line summary of the rest naming its cards.",
+        "A Finding is a severity (blocker or note), named cards, the problem, and at most one suggestion — an owned swap or an unowned Maybeboard candidate; the assembler refuses a malformed Finding with exit 2 and no partial Block.",
+        "With no Brief the review runs Standards-only: the Brief axis reports no Brief available and the overall Verdict is the Standards axis alone.",
+        "The /tutor:review command is a thin wrapper handing off to the review skill, whose metadata.version matches the plugin manifest's pinned version.",
+        "The review skill pins the locked Smell baseline v1 by name: synergy island, dead card, win-more, no comeback plan, piloting overload, fragile mana, theme tax, redundancy gap, curve lie, interaction mismatch.",
+        "The Commander profile authors the per-Format review standards from the recorded seeds — politics, functional-copy redundancy, answer spread — as data the Standards axis reads, and the review skill pins that the profile overrides the baseline.",
+        "The review skill's text pins the contract: two parallel subagents, one per axis, aggregated side by side with the sequential two-pass fallback as robustness; Review trusts the green Suite and never recounts Check territory but may flag a Check target as mis-set for the Brief; Review never edits the Deck; ship closes with the ManaBox import suggestion while playable and rebuild offer a Build re-run consuming the Review Block; Power fit, mass land denial, chained extra turns, and early two-card combos are Review judgment, not Checks.",
+        "The Review-flawed fixture Deck plants only Review-territory flaws: every Check green on the clean fixture Deck stays green on it through the unmodified runner, and each registered standards/brief flaw names owned cards present in the Deck.",
+        "Run live, /tutor:review fans out the two axis subagents in parallel and aggregates their Findings side by side through the assembler, falling back to two sequential passes when subagents are unavailable.",
+        "Run live over the Review-flawed fixture Deck and its Brief, the Review's Findings catch every planted flaw the manifest registers, on the axis its class names, naming the planted cards.",
+        "Run live over a Check-flawed fixture Deck, the review routes Check territory to the Suite: the planted legality and availability flaws surface through the runner's report, never as fresh Review Findings.",
+        "Run live, fuzzy Brief asks are judged on the Brief axis, and a Check target the Brief outgrew is flagged as mis-set for the Brief without recounting the Suite."
+      ]
     }
   ]
 }

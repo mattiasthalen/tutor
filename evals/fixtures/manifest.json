@@ -75,6 +75,28 @@
         "violates": "a Kitchen 20 Pack is exactly 20 cards (this one is 21)"
       }
     ],
+    "decks/tatyova-landfall-review-flawed.txt": [
+      {
+        "id": "commander-synergy-island",
+        "class": "standards",
+        "smell": "synergy island",
+        "cards": ["Corsair Captain", "Pirate's Cutlass"],
+        "violates": "cards serve the Deck's plan — a two-card Pirate island rewards only itself in a landfall Deck"
+      },
+      {
+        "id": "commander-dead-card",
+        "class": "standards",
+        "smell": "dead card",
+        "cards": ["Goblin Firebomb"],
+        "violates": "every card earns its slot — a {7} activation this power level never reaches does nothing in play"
+      },
+      {
+        "id": "commander-off-brief",
+        "class": "brief",
+        "cards": ["Vaporkin"],
+        "violates": "the Brief's notes ask lands matter and steady card draw — an aggro tempo flier serves neither stated ask"
+      }
+    ],
     "decks/tatyova-landfall-flawed.txt": [
       {
         "id": "commander-unowned-card",

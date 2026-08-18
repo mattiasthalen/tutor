@@ -62,6 +62,17 @@ role_guidance:
   land: Any card with the Land type.
   theme: Advances the Brief's named theme; other covers honest glue.
 
+review_standards:
+  # Per-Format Standards-axis judgment (ADR 0006), authored from the recorded
+  # Commander seeds. The review skill applies these on top of its
+  # format-agnostic Smell baseline; an entry here sharing a baseline Smell's
+  # name overrides that Smell's reading — the profile overrides the baseline.
+  # Data, never code (ADR 0005): judgment-flavored guidance the Standards
+  # pass reads, like role_guidance, never a predicate.
+  politics: Multiplayer is negotiated - a Deck with nothing to offer, threaten, or deescalate across three opponents fights every war alone and loses them all.
+  functional-copy redundancy: Singleton limits copies, not effects - a plan resting on one exact card wants functional copies of the effect; count effects, not names, before calling a plan consistent.
+  answer spread: A hundred-card table brings artifacts, enchantments, graveyards, and fliers - removal bunched on one target class leaves the rest unanswered; spread answers across permanent types and sizes.
+
 checks:
   # Check templates whose ids resolve to the runner's fixed predicates, in
   # report order. generate_suite.py inserts quota Checks and mechanical Brief
