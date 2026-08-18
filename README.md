@@ -33,6 +33,14 @@ self-hosted marketplaces, so either:
 - enable auto-update for the `tutor` marketplace in `/plugin`, or
 - update manually: run `/plugin marketplace update`, then `/plugin update tutor`.
 
+## Releasing
+
+Releases are cut with `scripts/release`, which bumps the pinned version,
+mirrors it into every skill, drafts the [CHANGELOG.md](CHANGELOG.md) entry,
+validates, and tags `tutor--v{version}`. See
+[docs/releasing.md](docs/releasing.md) for the flow and for what MAJOR, MINOR,
+and PATCH mean for prompt-ware.
+
 ## Legal
 
 tutor is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
