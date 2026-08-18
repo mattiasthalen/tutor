@@ -108,6 +108,15 @@ def parse_export(path):
     return rows, skipped
 
 
+def identifier_key(ident):
+    """The one canonical key for a collection identifier dict — used for
+    dedup in gather_identifiers and for matching Scryfall's not_found echoes
+    in resolve_live, so identity is keyed a single way everywhere."""
+    if "id" in ident:
+        return ("id", ident["id"])
+    return ("name", ident.get("name", "").casefold(), ident.get("set", ""))
+
+
 def gather_identifiers(rows):
     """Unique Scryfall collection identifiers for the Export's cards.
 
@@ -118,11 +127,10 @@ def gather_identifiers(rows):
     identifiers, seen = [], {}
     for row in rows:
         if row["scryfall_id"]:
-            key = ("id", row["scryfall_id"])
             ident = {"id": row["scryfall_id"]}
         else:
-            key = ("name", row["name"].casefold(), row["set"])
             ident = {"name": row["name"], "set": row["set"]}
+        key = identifier_key(ident)
         if key not in seen:
             seen[key] = {"identifier": ident, "rows": []}
             identifiers.append(seen[key])
@@ -244,16 +252,16 @@ def resolve_live(identifiers, api_url):
     idents = [entry["identifier"] for entry in identifiers]
     data, not_found = fetch_batches(idents, api_url, throttle)
 
-    entries_by_key = {json.dumps(e["identifier"], sort_keys=True): e for e in identifiers}
-    fallback_idents, fallback_keys, unresolved = [], {}, []
+    entries_by_key = {identifier_key(e["identifier"]): e for e in identifiers}
+    fallback_idents, fallback_keys, unresolved = [], set(), []
     for miss in not_found:
-        entry = entries_by_key.get(json.dumps(miss, sort_keys=True))
+        entry = entries_by_key.get(identifier_key(miss))
         row = entry["rows"][0] if entry else {"name": "", "set": ""}
         if "id" in miss and row["name"] and row["set"]:
             ident = {"name": row["name"], "set": row["set"]}
-            key = (row["name"].casefold(), row["set"])
+            key = identifier_key(ident)
             if key not in fallback_keys:
-                fallback_keys[key] = True
+                fallback_keys.add(key)
                 fallback_idents.append(ident)
         else:
             unresolved.append(f"{row['name'] or miss.get('id', '?')} ({row['set'].upper() or '?'})")

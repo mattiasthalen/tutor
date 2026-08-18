@@ -65,7 +65,7 @@ flaw; the smoke case cross-checks it.
 ## Refreshing the pinned snapshot — deliberate, never automatic
 
 ```sh
-python3 evals/fixtures/scryfall/refresh_snapshot.py   # the repo's one network path
+python3 evals/fixtures/scryfall/refresh_snapshot.py   # the deliberate refresh network path
 python3 evals/fixtures/scryfall/derive_oracle.py      # re-derive the Oracle from it
 python3 evals/run_evals.py                            # prove the tree still green
 ```

@@ -5,8 +5,9 @@ Runs the eval cases in ``evals/evals.json`` — authored in the skill-creator
 eval workflow format — and grades their mechanical expectations against the
 committed fixtures. Everything here is deterministic and offline: fixtures on
 disk are the only input, fixed predicates are the only graders, and the live
-Scryfall API is never called (the deliberate snapshot refresh script is the
-one place network exists, and this harness never runs it).
+Scryfall API is never called (network lives only in the deliberate snapshot
+refresh script and the oracle build script's live mode; this harness runs
+neither path).
 
 Usage:
     python3 evals/run_evals.py [--case NAME_OR_ID] [--fixture-root DIR] [--out DIR]
@@ -486,7 +487,7 @@ def check_offline_guarantee(_ctx):
 ORACLE_SCRIPT = REPO_ROOT / "skills" / "oracle" / "scripts" / "build_oracle.py"
 
 
-def run_oracle_script(ctx, csv_text=None, home=None, expect_failure=False):
+def run_oracle_script(ctx, csv_text=None, expect_failure=False):
     """Run build_oracle.py in a temp Collection home, offline.
 
     With csv_text, that text is the Export; otherwise the realism Export is
@@ -497,11 +498,8 @@ def run_oracle_script(ctx, csv_text=None, home=None, expect_failure=False):
     import subprocess
     import tempfile
 
-    if home is None:
-        tmp = pathlib.Path(tempfile.mkdtemp(prefix="oracle-smoke-"))
-        atexit.register(shutil.rmtree, tmp, ignore_errors=True)
-    else:
-        tmp = home
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix="oracle-smoke-"))
+    atexit.register(shutil.rmtree, tmp, ignore_errors=True)
     export = tmp / "collection.csv"
     if csv_text is None:
         shutil.copy(ctx.path("collections/real-collection.csv"), export)
@@ -522,9 +520,9 @@ def run_oracle_script(ctx, csv_text=None, home=None, expect_failure=False):
     return completed, tmp / "oracle.jsonl", tmp
 
 
-def first_snapshot_card(ctx, layout="normal"):
+def first_snapshot_card(ctx):
     _, cards = load_snapshot(ctx)
-    return next(c for c in cards if c.get("layout") == layout)
+    return next(c for c in cards if c.get("layout") == "normal")
 
 
 def check_oracle_skill_output(ctx):
