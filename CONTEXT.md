@@ -9,7 +9,7 @@ The owner's physical Magic: The Gathering cards. Every Deck is built only from t
 _Avoid_: inventory, library (an MTG zone)
 
 **Export**:
-The CSV file ManaBox produces representing the Collection — its digital form. Whether it also carries deck assignments is under verification.
+The CSV file ManaBox produces representing the Collection — its digital form. Each card row records where it lives — a binder or one of the owner's ManaBox decks — so an Export carries deck assignments.
 _Avoid_: dump, backup
 
 **Brief**:
