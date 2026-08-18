@@ -13,7 +13,7 @@ The CSV file ManaBox produces representing the Collection — its digital form. 
 _Avoid_: dump, backup
 
 **Brief**:
-The statement of intent for a Deck: Format, identity, power, constraints — including any play-variant asks. Settled with the human before any building.
+The statement of intent for a Deck: Format, identity, Power, constraints — including any play-variant asks. Settled with the human before any building.
 _Avoid_: spec, requirements
 
 **Deck**:
@@ -85,5 +85,9 @@ A test of tutor itself — does a skill produce a sound Brief, Deck, or Review. 
 _Avoid_: test (unqualified), Check (that judges a Deck, not tutor)
 
 **Table**:
-A set of Decks built together for one sitting — an Archenemy villain versus three heroes, or three Commander decks for a pod — matched in power and drawn from one Collection.
+A set of Decks built together for one sitting — an Archenemy villain versus three heroes, or three Commander decks for a pod — matched in Power and drawn from one Collection.
 _Avoid_: pod (one specific table shape), match
+
+**Power**:
+How strong a Deck aims to be — a 1–5 ladder declared in the Brief. Commander reads the number as its official Bracket (1 Exhibition to 5 cEDH); other Formats read it through their own profile. Kitchen 20 Decks carry no Power: the Format pins it.
+_Avoid_: tier, power level
