@@ -37,7 +37,7 @@ A named heuristic on the Standards axis — the format-agnostic baseline every R
 _Avoid_: violation, error
 
 **Block**:
-A re-pasteable fenced code block that carries a Brief, Deck, Review, or Suite (with its red/green Report) between conversations. The interchange artifact of the paste round-trip.
+A re-pasteable fenced code block that carries a Brief, Deck, Review, Suite (with its red/green Report), Table Brief, or Table Review between conversations. The interchange artifact of the paste round-trip.
 _Avoid_: snippet, export (that's ManaBox's)
 
 **Board**:
@@ -53,7 +53,7 @@ Rebuilding an existing Deck against a fresh Export and a possibly revised Brief.
 _Avoid_: respec, refresh
 
 **Donor Deck**:
-A Deck the Brief names as fair game for poaching — its cards count as available while building. Cards in any Deck not named a Donor Deck stay committed to it. The Brief may name every Deck at once ("the entire collection is available").
+A Deck the Brief names as fair game for poaching — its cards count as available while building. Cards in any Deck not named a Donor Deck stay committed to it. The Brief may name every Deck at once ("the entire collection is available"). Decks seated at the same Table are never Donor Decks for each other.
 _Avoid_: source deck
 
 **Format**:
@@ -97,9 +97,21 @@ A test of tutor itself — does a skill produce a sound Brief, Deck, or Review. 
 _Avoid_: test (unqualified), Check (that judges a Deck, not tutor)
 
 **Table**:
-A set of Decks built together for one sitting — an Archenemy villain versus three heroes, or three Commander decks for a pod — matched in Power and drawn from one Collection.
+A set of Decks built together for one sitting — an Archenemy villain versus three heroes, or three Commander decks for a pod — matched in Power and drawn from one Collection. Every Table plays one Format; its Decks fill Seats.
 _Avoid_: pod (one specific table shape), match
 
 **Power**:
 How strong a Deck aims to be — a 1–5 ladder declared in the Brief. Commander reads the number as its official Bracket (1 Exhibition to 5 cEDH); other Formats read it through their own profile. Kitchen 20 Decks carry no Power: the Format pins it.
 _Avoid_: tier, power level
+
+**Seat**:
+A slot in a Table: an optional role (villain, hero) plus the Deck that fills it. Seat order in the Table Brief is build order and contention priority — an earlier Seat's Deck keeps the copies it took.
+_Avoid_: player (a Seat names a Deck, not a person), slot
+
+**Table Brief**:
+The statement of intent for a Table: Format, play variant, shared Power and constraints, and one Seat line per Deck. An index — it names each Seat's Deck and rides alongside the per-Deck Briefs, never embedding them.
+_Avoid_: pod spec, event brief
+
+**Table Review**:
+The judgment of a finished Table as one sitting — Power spread, clashing play patterns, contention fallout — once every Seat is built. Judges the sitting; per-Deck Reviews judge the Decks.
+_Avoid_: audit, group review
