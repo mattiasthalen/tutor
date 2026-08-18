@@ -23,7 +23,7 @@ RUNNER = REPO / "evals" / "run_evals.py"
 def run_harness(*args, cwd=REPO):
     """Run the eval harness CLI and return the CompletedProcess."""
     return subprocess.run(
-        [sys.executable, str(RUNNER), *args],
+        [sys.executable, str(RUNNER), *[str(a) for a in args]],
         cwd=str(cwd),
         capture_output=True,
         text=True,
@@ -53,13 +53,17 @@ class SmokeEvalRunsGreen(unittest.TestCase):
 
 
 class SmokeGradingMixin:
-    """Shared seam for TestCases graded through the smoke case: run it once
-    per TestCase, load its grading.json, and assert per-expectation green."""
+    """Shared seam for TestCases graded through a smoke eval case: run the
+    case named by ``CASE`` once per TestCase, load its grading.json, and
+    assert per-expectation green. tests/test_brief_skill.py reuses this with
+    CASE = "brief-smoke"."""
+
+    CASE = "harness-smoke"
 
     @classmethod
     def setUpClass(cls):
-        cls.result = run_harness("--case", "harness-smoke")
-        grading_path = REPO / "evals" / "results" / "harness-smoke" / "grading.json"
+        cls.result = run_harness("--case", cls.CASE)
+        grading_path = REPO / "evals" / "results" / cls.CASE / "grading.json"
         cls.grading = json.loads(grading_path.read_text(encoding="utf-8"))
 
     def graded_green(self, needle):

@@ -117,6 +117,11 @@ def main(argv=None):
     fired = 0
 
     if newest_added and watermark:
+        # Lexicographic compare, deliberately: both sides carry the uniform
+        # ManaBox Zulu ISO-8601 shape (YYYY-MM-DDTHH:MM:SS.mmmZ) — the
+        # watermark is copied verbatim from an Export's Added value — and
+        # that fixed shape sorts chronologically as text. Mixed precision
+        # or offsets would break this; neither occurs here.
         newer = newest_added > watermark
         fired += newer
         print(

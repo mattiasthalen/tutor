@@ -9,8 +9,10 @@ A Brief Block is flat ``key: value`` lines (CONTEXT.md, spec #46): canonical
 keys ``name``, ``format``, ``centerpiece``, ``identity``, ``play variant``,
 ``power``, ``constraint`` (repeatable), ``donor`` (repeatable; ``donor: all``
 frees the whole Collection), ``notes``. Only ``format`` is required. No
-``budget:`` key exists. Blocks are recognized by shape alone — no sentinels,
-no version markers — so anything that is not a canonical line is invalid.
+``budget:`` key exists, and Kitchen 20 carries no Power — the Format pins it,
+so ``power:`` beside ``format: kitchen 20`` is invalid. Blocks are recognized
+by shape alone — no sentinels, no version markers — so anything that is not a
+canonical line is invalid.
 
 Usage:
     validate_brief.py BRIEF_FILE [--collection EXPORT_CSV]
@@ -88,6 +90,15 @@ def parse_brief(text):
                 f"power: {value!r} — Power is a 1-5 number (Commander reads it "
                 "as the official Bracket); free text may trail the number"
             )
+    # Kitchen 20 carries no Power — the Format pins it (spec #46). Values are
+    # already stripped; formats compare case-insensitively, as elsewhere.
+    if any(k == "format" and v.lower() == "kitchen 20" for k, v in entries):
+        for key, value in entries:
+            if key == "power":
+                problems.append(
+                    f"power: {value!r} — Kitchen 20 carries no Power (the "
+                    "Format pins it); drop the power: line"
+                )
     return entries, problems
 
 

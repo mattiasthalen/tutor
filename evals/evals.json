@@ -85,7 +85,8 @@
         "Invoked from natural language alone — no /tutor:brief command typed — the skill fires and opens the brief conversation.",
         "Run with the scripted answers, the conversation ends in a Brief Block equivalent to the Tatyova fixture Brief, written to the Collection home.",
         "Mechanical asks land as constraint: lines and fuzzy asks land in notes: — each where it can be honestly enforced.",
-        "The conversation asks the Export/Oracle freshness question exactly once."
+        "The conversation asks the Export/Oracle freshness question exactly once.",
+        "A pasted Export is always accepted and beats the file on conflict: the diff — rows added, removed, quantities changed — is reported, then the paste is worked from."
       ]
     }
   ]
