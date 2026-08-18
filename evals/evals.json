@@ -1,0 +1,24 @@
+{
+  "skill_name": "tutor",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Verify tutor's committed eval fixtures end to end, offline: parse the realism Export, confirm the synthetic Collections cover its gaps, confirm the fixture Briefs and Decks are well-formed with their planted flaws registered, and confirm the pinned Scryfall snapshot and the fixture Oracle derived from it cover exactly the fixture cards.",
+      "expected_output": "A red/green report over the fixture tree with every mechanical expectation green, proving the harness — case loading, fixture resolution, fixed-predicate grading, report emission — end to end without any network call.",
+      "files": [
+        "evals/fixtures/collections/real-collection.csv",
+        "evals/fixtures/collections/real-deck.txt",
+        "evals/fixtures/collections/synthetic-edge-cases.csv",
+        "evals/fixtures/collections/synthetic-kitchen20-pool.csv",
+        "evals/fixtures/collections/synthetic-standard-pool.csv"
+      ],
+      "expectations": [
+        "The realism fixture collections/real-collection.csv parses header-keyed as CSV with exactly 577 data rows.",
+        "A synthetic Collection row carries the etched Foil value the real Export lacks.",
+        "Synthetic Collection rows carry non-English Language codes the real Export lacks, including the disputed zhs.",
+        "A synthetic Collection row carries a promo collector number (letter-suffixed or starred) the real Export lacks.",
+        "Per-Format shaped pool Collections cover Kitchen 20 (Uncharted Haven beside mono-white candidates) and Standard (playset quantities), parsing with the full ManaBox header."
+      ]
+    }
+  ]
+}
