@@ -1,0 +1,8 @@
+name: Tatyova Landfall
+format: commander
+centerpiece: Tatyova, Benthic Druid
+identity: simic
+power: 2
+constraint: nothing above 6 mana
+donor: Baylen, the Haymaker
+notes: lands matter, steady card draw, no infinite combos

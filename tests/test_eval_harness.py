@@ -84,6 +84,41 @@ class SyntheticCollectionsCoverRealExportGaps(unittest.TestCase):
         self.graded_green("Per-Format")
 
 
+class FixtureBriefsAndDecksExist(unittest.TestCase):
+    """Acceptance: fixture Briefs and Decks exist, some with planted flaws
+    for Review evals."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.result = run_harness("--case", "harness-smoke")
+        grading_path = REPO / "evals" / "results" / "harness-smoke" / "grading.json"
+        cls.grading = json.loads(grading_path.read_text(encoding="utf-8"))
+
+    def graded_green(self, needle):
+        matches = [e for e in self.grading["expectations"] if needle in e["text"]]
+        self.assertTrue(matches, f"no smoke expectation mentions {needle!r}")
+        for e in matches:
+            self.assertTrue(e["passed"], f"expectation red: {e['text']}\n{e['evidence']}")
+
+    def test_briefs_graded_green(self):
+        self.graded_green("Brief")
+        briefs = list((REPO / "evals" / "fixtures" / "briefs").glob("*.txt"))
+        self.assertGreaterEqual(len(briefs), 2, "fewer than two fixture Briefs")
+
+    def test_decks_graded_green(self):
+        self.graded_green("ManaBox-importable")
+
+    def test_planted_flaws_graded_green(self):
+        self.graded_green("planted flaws")
+        manifest = json.loads(
+            (REPO / "evals" / "fixtures" / "manifest.json").read_text(encoding="utf-8")
+        )
+        flawed = manifest["planted_flaws"]
+        self.assertTrue(flawed, "no Deck registers planted flaws")
+        classes = {f["class"] for flaws in flawed.values() for f in flaws}
+        self.assertIn("availability", classes, "no availability flaw planted")
+
+
 class HarnessCanGoRed(unittest.TestCase):
     """Green is only trustworthy if a broken fixture actually turns the run red."""
 

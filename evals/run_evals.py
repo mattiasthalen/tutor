@@ -29,6 +29,7 @@ import csv
 import io
 import json
 import pathlib
+import re
 import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -134,6 +135,124 @@ def check_per_format_pools(ctx):
     return not problems, "; ".join(problems or evidence)
 
 
+BRIEF_KEYS = {
+    "name", "format", "centerpiece", "identity", "play variant", "power",
+    "constraint", "donor", "notes",
+}
+
+BOARD_HEADERS = {"// Commander", "// Mainboard", "// Sideboard", "// Maybeboard"}
+BASIC_NAMES = {"Plains", "Island", "Swamp", "Forest", "Mountain", "Wastes"}
+
+PINNED_LINE = re.compile(
+    r"^(\d+) (.+) \(([A-Z0-9]{2,6})\) (\S+)(?: // (.+))?$"
+)
+BARE_LINE = re.compile(r"^(\d+) (.+?)(?: // (.+))?$")
+
+
+def check_fixture_briefs(ctx):
+    briefs = sorted(ctx.path("briefs").glob("*.txt"))
+    if len(briefs) < 2:
+        return False, f"only {len(briefs)} fixture Briefs under briefs/"
+    problems = []
+    for brief in briefs:
+        keys = []
+        for line in brief.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            key, sep, value = line.partition(":")
+            if not sep or not value.strip() or key not in BRIEF_KEYS:
+                problems.append(f"{brief.name}: not a canonical 'key: value' line: {line!r}")
+                continue
+            keys.append(key)
+        if "format" not in keys:
+            problems.append(f"{brief.name}: missing the required format: line")
+    return not problems, "; ".join(problems) or f"{len(briefs)} Briefs, all flat key: value with format:"
+
+
+def parse_deck_block(text):
+    """Parse a Deck Block; return (card_lines, problems). card_lines are
+    (qty, name, set_code_or_None, number_or_None) tuples."""
+    lines = text.splitlines()
+    problems, cards, boards = [], [], []
+    if not lines or not lines[0].startswith("// "):
+        problems.append("first line is not a '// <name>' title comment")
+    for line in lines[1:]:
+        if not line.strip():
+            continue
+        if line in BOARD_HEADERS:
+            boards.append(line)
+            continue
+        if line.startswith("//"):
+            problems.append(f"unrecognized comment/header line: {line!r}")
+            continue
+        m = PINNED_LINE.match(line)
+        if m:
+            cards.append((int(m.group(1)), m.group(2), m.group(3), m.group(4)))
+            continue
+        m = BARE_LINE.match(line)
+        if m:
+            cards.append((int(m.group(1)), m.group(2), None, None))
+            continue
+        problems.append(f"unparseable card line: {line!r}")
+    if not boards:
+        problems.append("no Board headers")
+    if not cards:
+        problems.append("no card lines")
+    return cards, problems
+
+
+def check_fixture_decks(ctx):
+    decks = sorted(ctx.path("decks").glob("*.txt"))
+    if not decks:
+        return False, "no fixture Decks under decks/"
+    problems, evidence = [], []
+    for deck in decks:
+        cards, deck_problems = parse_deck_block(deck.read_text(encoding="utf-8"))
+        problems += [f"{deck.name}: {p}" for p in deck_problems]
+        unpinned_nonbasics = [
+            name for _, name, set_code, _ in cards
+            if set_code is None and name not in BASIC_NAMES
+        ]
+        if unpinned_nonbasics:
+            problems.append(f"{deck.name}: nonbasics without a printing pin: {unpinned_nonbasics}")
+        evidence.append(f"{deck.name}: {sum(q for q, *_ in cards)} cards")
+    return not problems, "; ".join(problems or evidence)
+
+
+def check_planted_flaws(ctx):
+    manifest = json.loads(ctx.path("manifest.json").read_text(encoding="utf-8"))
+    flawed = manifest.get("planted_flaws", {})
+    if not flawed:
+        return False, "manifest registers no planted flaws"
+    collection_names = {r["Name"] for rel in SYNTHETIC_COLLECTIONS + ["collections/real-collection.csv"]
+                        for r in ctx.read_manabox_csv(rel)}
+    problems = []
+    for deck_rel, flaws in flawed.items():
+        deck_path = ctx.path(deck_rel)
+        if not deck_path.is_file():
+            problems.append(f"{deck_rel}: registered but missing")
+            continue
+        deck_text = deck_path.read_text(encoding="utf-8")
+        for flaw in flaws:
+            for card in flaw["cards"]:
+                if card not in deck_text:
+                    problems.append(f"{deck_rel}: flaw {flaw['id']} names {card!r} not in the Deck")
+                if flaw["class"] == "availability" and card in collection_names:
+                    problems.append(
+                        f"{deck_rel}: availability flaw {flaw['id']} card {card!r} is owned"
+                    )
+    for clean_rel in manifest.get("clean_decks", []):
+        if not ctx.path(clean_rel).is_file():
+            problems.append(f"clean deck {clean_rel} missing")
+        if clean_rel in flawed:
+            problems.append(f"{clean_rel} listed both clean and flawed")
+    flaw_count = sum(len(f) for f in flawed.values())
+    return not problems, "; ".join(problems) or (
+        f"{flaw_count} planted flaws across {len(flawed)} Decks, "
+        f"{len(manifest.get('clean_decks', []))} clean Decks"
+    )
+
+
 # --- Registry: exact expectation text -> fixed predicate --------------------
 # Keys are pinned verbatim to the strings in evals.json; editing a wording
 # means editing both, deliberately. Unregistered expectations are soft.
@@ -149,6 +268,12 @@ EXPECTATION_CHECKS = {
         check_promo_collector_numbers,
     "Per-Format shaped pool Collections cover Kitchen 20 (Uncharted Haven beside mono-white candidates) and Standard (playset quantities), parsing with the full ManaBox header.":
         check_per_format_pools,
+    "Fixture Briefs parse as flat key: value Blocks with the required format: line and only canonical Brief keys.":
+        check_fixture_briefs,
+    "Fixture Decks parse as ManaBox-importable Deck Blocks: title comment, Board headers, quantity lines with set-and-number pins on nonbasics.":
+        check_fixture_decks,
+    "Some fixture Decks carry planted flaws for Review evals, each registered in the manifest and naming cards present in its Deck (or absent from every Collection for availability flaws).":
+        check_planted_flaws,
 }
 
 

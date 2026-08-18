@@ -10,14 +10,25 @@
         "evals/fixtures/collections/real-deck.txt",
         "evals/fixtures/collections/synthetic-edge-cases.csv",
         "evals/fixtures/collections/synthetic-kitchen20-pool.csv",
-        "evals/fixtures/collections/synthetic-standard-pool.csv"
+        "evals/fixtures/collections/synthetic-standard-pool.csv",
+        "evals/fixtures/briefs/kitchen20-sunlit-whiskers.txt",
+        "evals/fixtures/briefs/commander-tatyova-landfall.txt",
+        "evals/fixtures/briefs/standard-ember-stampede.txt",
+        "evals/fixtures/decks/sunlit-whiskers-pack.txt",
+        "evals/fixtures/decks/sunlit-whiskers-pack-flawed.txt",
+        "evals/fixtures/decks/tatyova-landfall.txt",
+        "evals/fixtures/decks/tatyova-landfall-flawed.txt",
+        "evals/fixtures/manifest.json"
       ],
       "expectations": [
         "The realism fixture collections/real-collection.csv parses header-keyed as CSV with exactly 577 data rows.",
         "A synthetic Collection row carries the etched Foil value the real Export lacks.",
         "Synthetic Collection rows carry non-English Language codes the real Export lacks, including the disputed zhs.",
         "A synthetic Collection row carries a promo collector number (letter-suffixed or starred) the real Export lacks.",
-        "Per-Format shaped pool Collections cover Kitchen 20 (Uncharted Haven beside mono-white candidates) and Standard (playset quantities), parsing with the full ManaBox header."
+        "Per-Format shaped pool Collections cover Kitchen 20 (Uncharted Haven beside mono-white candidates) and Standard (playset quantities), parsing with the full ManaBox header.",
+        "Fixture Briefs parse as flat key: value Blocks with the required format: line and only canonical Brief keys.",
+        "Fixture Decks parse as ManaBox-importable Deck Blocks: title comment, Board headers, quantity lines with set-and-number pins on nonbasics.",
+        "Some fixture Decks carry planted flaws for Review evals, each registered in the manifest and naming cards present in its Deck (or absent from every Collection for availability flaws)."
       ]
     }
   ]

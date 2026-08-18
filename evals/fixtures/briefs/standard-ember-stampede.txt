@@ -1,0 +1,6 @@
+name: Ember Stampede
+format: standard
+identity: mono-red
+power: 3
+constraint: nothing above 4 mana
+notes: aggressive mouse and raccoon curve from the Standard pool fixture
