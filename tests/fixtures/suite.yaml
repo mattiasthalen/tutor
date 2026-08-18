@@ -1,0 +1,101 @@
+# Suite Block — generated once at Build start from the Brief and the Kitchen 20 Format profile.
+# Data only. Nothing here re-decides at run time: targets are snapshotted, Role tags are
+# judgment recorded once. Re-running the Suite (including at Upgrade) reuses this file as-is;
+# only a changed Brief regenerates it.
+
+suite: Sunlit Flock
+format: Kitchen 20
+generated: 2026-08-18
+brief: mono-white lifegain Pack, teachable, nothing above 4 mana
+
+profile:
+  # Format-profile targets, snapshotted at generation. Brief overrides would land here too.
+  deck_size: 20
+  copy_limit_nonland: 1
+  colors_max: 1
+  multicolor_cards: 0
+  rares_exact: 1
+  rarity_ceiling: rare
+  lands_min: 8
+  lands_max: 9
+  nonbasic_allowed: [Uncharted Haven]
+  evergreen_keywords: [Deathtouch, Defender, Double strike, Enchant, Equip, First strike, Flash, Flying, Haste, Hexproof, Indestructible, Lifelink, Menace, Protection, Prowess, Reach, Trample, Vigilance, Ward]
+  curve_avg_max: 3.0
+  early_nonland_cmc2_min: 4
+  p_2plus_lands_in_7_min: 0.85
+
+quotas:
+  # Role quotas: profile defaults merged with Brief asks. One Check per line.
+  creature: 8
+  theme: 6
+  removal: 2
+  draw: 1
+  wincon: 1
+
+constraints:
+  # Mechanical Brief constraints (judgment-free).
+  cmc_max: 4
+
+roles:
+  # Card -> Role tags. Tagging is judgment, done once at Build; counting is mechanical.
+  # Multi-tag: one card counts toward every Role it carries.
+  Healer's Hawk: [creature, theme]
+  Hinterland Sanctifier: [creature, theme]
+  Leonin Vanguard: [creature, theme]
+  Bishop's Soldier: [creature, theme]
+  Ajani's Pridemate: [creature, theme, wincon]
+  Prideful Parent: [creature]
+  Inspiring Overseer: [creature, theme, draw]
+  Dazzling Angel: [creature, theme]
+  Felidar Savior: [creature, theme]
+  Exemplar of Light: [creature, theme, wincon, draw]
+  Pacifism: [removal]
+  Banishing Light: [removal]
+  Giada, Font of Hope: [creature]
+  Sun-Blessed Healer: [creature, theme]
+  Vanguard Seraph: [creature, theme]
+  Moment of Triumph: [theme]
+  Felidar Cub: [creature, removal]
+  Disenchant: [removal]
+  Crusader of Odric: [creature, wincon]
+  Courageous Goblin: [creature]
+
+checks:
+  # The Suite: id resolves to a fixed predicate in the runner (or a walkable
+  # sentence when no sandbox exists); every parameter lives above.
+  - id: legality.size
+    text: Deck has exactly {deck_size} cards.
+  - id: legality.singleton
+    text: No nonland card appears more than {copy_limit_nonland} time(s).
+  - id: legality.mono_color
+    text: Deck uses at most {colors_max} color and {multicolor_cards} multicolor cards.
+  - id: legality.rare_count
+    text: Exactly {rares_exact} rare, nothing above {rarity_ceiling}.
+  - id: legality.land_count
+    text: Between {lands_min} and {lands_max} lands.
+  - id: legality.nonbasic_lands
+    text: Only nonbasic lands on the allowed list ({nonbasic_allowed}).
+  - id: legality.evergreen
+    text: Every keyword on every card is on the evergreen list.
+  - id: availability.in_collection
+    text: Every card (at its count) exists in the Collection.
+  - id: manabase.color_coverage
+    text: Lands can produce every color the spells ask for.
+  - id: curve.average
+    text: Average nonland mana value is at most {curve_avg_max}.
+  - id: curve.early_plays
+    text: At least {early_nonland_cmc2_min} nonland cards at mana value 2 or less.
+  - id: quota.creature
+    text: At least {quotas.creature} cards tagged creature.
+  - id: quota.theme
+    text: At least {quotas.theme} cards tagged theme.
+  - id: quota.removal
+    text: At least {quotas.removal} cards tagged removal.
+  - id: quota.draw
+    text: At least {quotas.draw} cards tagged draw.
+  - id: quota.wincon
+    text: At least {quotas.wincon} cards tagged wincon.
+  - id: brief.cmc_max
+    text: No card above mana value {cmc_max}.
+  - id: consistency.opening_lands
+    text: P(at least 2 lands in a 7-card opening hand) is at least {p_2plus_lands_in_7_min}.

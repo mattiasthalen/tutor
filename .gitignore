@@ -1,2 +1,3 @@
 # Session-local agent worktrees
 .claude/worktrees/
+__pycache__/

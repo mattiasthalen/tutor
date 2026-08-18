@@ -1,0 +1,25 @@
+suite: Sunlit Flock
+deck: Sunlit Flock
+format: Kitchen 20
+date: 2026-08-18
+oracle: data-backed (22 cards)
+verdict: red — 11 red / 7 green
+
+red   legality.size — 0 cards, need exactly 20
+green legality.singleton — no nonland above 1 copy
+green legality.mono_color — colors ['none'], multicolor none
+red   legality.rare_count — 0 rare(s): none
+red   legality.land_count — 0 lands, need 8-9
+green legality.nonbasic_lands — nonbasics all on the allowed list
+green legality.evergreen — all keywords evergreen
+green availability.in_collection — every card owned
+green manabase.color_coverage — spells need nothing, lands make nothing
+red   curve.average — no nonland cards yet
+red   curve.early_plays — 0 nonland cards at mana value <=2, need 4
+red   quota.creature — 0 tagged creature, need 8
+red   quota.theme — 0 tagged theme, need 6
+red   quota.removal — 0 tagged removal, need 2
+red   quota.draw — 0 tagged draw, need 1
+red   quota.wincon — 0 tagged wincon, need 1
+green brief.cmc_max — nothing above the cap
+red   consistency.opening_lands — deck has 0 cards, cannot draw 7

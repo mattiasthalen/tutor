@@ -1,0 +1,25 @@
+suite: Sunlit Flock
+deck: Sunlit Flock
+format: Kitchen 20
+date: 2026-08-18
+oracle: data-backed (22 cards)
+verdict: green — 0 red / 18 green
+
+green legality.size — 20 cards, need exactly 20
+green legality.singleton — no nonland above 1 copy
+green legality.mono_color — colors ['W'], multicolor none
+green legality.rare_count — 1 rare(s): Exemplar of Light
+green legality.land_count — 8 lands, need 8-9
+green legality.nonbasic_lands — nonbasics all on the allowed list
+green legality.evergreen — all keywords evergreen
+green availability.in_collection — every card owned
+green manabase.color_coverage — spells need ['W'], lands make ['B', 'G', 'R', 'U', 'W']
+green curve.average — average 2.42, max 3.0
+green curve.early_plays — 6 nonland cards at mana value <=2, need 4
+green quota.creature — 10 tagged creature, need 8
+green quota.theme — 9 tagged theme, need 6
+green quota.removal — 2 tagged removal, need 2
+green quota.draw — 2 tagged draw, need 1
+green quota.wincon — 2 tagged wincon, need 1
+green brief.cmc_max — nothing above the cap
+green consistency.opening_lands — P(>=2 lands in 7) = 0.89, need 0.85
