@@ -18,3 +18,8 @@ mean for prompt-ware.
   mirrored into every skill in lockstep, changelog entry drafted, validators
   run, `tutor--v{version}` tagged and pushed — with a `--dry-run` demo mode,
   guarded by `tests/release.test.sh` in CI. (#50)
+- `/tutor:oracle`: generates the Oracle (`oracle.jsonl`) beside the Export —
+  tolerant header-keyed Export parsing, batched and throttled resolution via
+  Scryfall's collection endpoint with a Name + Set code fallback for migrated
+  IDs, and a first metadata line carrying the two staleness signals. Legality
+  data is informational only. (#51)
