@@ -13,7 +13,7 @@ The CSV file ManaBox produces representing the Collection — its digital form. 
 _Avoid_: dump, backup
 
 **Brief**:
-The statement of intent for a Deck: Format, identity, budget, power, constraints — including any play-variant asks. Settled with the human before any building.
+The statement of intent for a Deck: Format, identity, power, constraints — including any play-variant asks. Settled with the human before any building.
 _Avoid_: spec, requirements
 
 **Deck**:
@@ -33,7 +33,7 @@ Rebuilding an existing Deck against a fresh Export and a possibly revised Brief.
 _Avoid_: respec, refresh
 
 **Donor Deck**:
-A Deck the Brief names as fair game for poaching — its cards count as available while building. Cards in any Deck not named a Donor Deck stay committed to it.
+A Deck the Brief names as fair game for poaching — its cards count as available while building. Cards in any Deck not named a Donor Deck stay committed to it. The Brief may name every Deck at once ("the entire collection is available").
 _Avoid_: source deck
 
 **Format**:
