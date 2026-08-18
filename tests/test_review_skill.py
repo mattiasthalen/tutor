@@ -67,7 +67,7 @@ class TempFindings:
         return path
 
 
-def assemble(home, standards, brief=None, *extra):
+def assemble(home, standards, brief=None):
     args = [
         "--deck-name", "Probe Deck",
         "--date", REFERENCE_DATE,
@@ -77,7 +77,7 @@ def assemble(home, standards, brief=None, *extra):
         args.append("--no-brief")
     else:
         args += ["--brief", home.write("brief.json", brief)]
-    return run_cli(ASSEMBLER, *args, *extra)
+    return run_cli(ASSEMBLER, *args)
 
 
 class VerdictsAreArithmetic(unittest.TestCase):
@@ -363,9 +363,33 @@ class NoBriefMeansStandardsOnly(unittest.TestCase):
         self.assertEqual(result.stdout, "")
 
 
+class MalformedDateIsUnusableInput(unittest.TestCase):
+    """The exit-code contract has two outcomes — 0 assembled, 2 unusable
+    input — and a malformed --date is unusable input: a named exit-2 refusal
+    with no partial Block, never a traceback."""
+
+    def test_a_malformed_date_is_refused_with_exit_2(self):
+        home = TempFindings()
+        self.addCleanup(home.cleanup)
+        result = run_cli(
+            ASSEMBLER,
+            "--deck-name", "Probe Deck", "--date", "yesterday-ish",
+            "--standards", home.write("standards.json", []),
+            "--no-brief",
+        )
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("yesterday-ish", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
+
 REVIEW_FLAWED_DECK = FIXTURES / "decks" / "tatyova-landfall-review-flawed.txt"
 
 
+# Deliberate copies of test_build_skill.py's run_fixture_suite and verdicts —
+# grader independence, never imported — kept in lockstep by hand with them
+# and with the harness's report_colors regex in evals/run_evals.py. Edit
+# them together.
 def run_fixture_suite(deck_path):
     return run_cli(
         RUNNER,

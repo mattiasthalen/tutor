@@ -180,7 +180,13 @@ def main():
 
     standards = load_findings(args.standards, "standards")
     brief = None if args.no_brief else load_findings(args.brief, "brief")
-    run_date = date.fromisoformat(args.date) if args.date else date.today()
+    if args.date:
+        try:
+            run_date = date.fromisoformat(args.date)
+        except ValueError:
+            unusable(f"--date {args.date!r} is not a YYYY-MM-DD date")
+    else:
+        run_date = date.today()
 
     block = assemble(args.deck_name, run_date.isoformat(), standards, brief)
     if args.out:

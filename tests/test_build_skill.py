@@ -630,6 +630,10 @@ class IdentityWithoutAnOracle(unittest.TestCase):
                       result.stdout)
 
 
+# test_review_skill.py carries deliberate copies of these two helpers
+# (run_fixture_suite and verdict_colors), and evals/run_evals.py carries the
+# same check-line regex as report_colors — grader independence, never
+# imported; kept in lockstep by hand. Edit them together.
 def run_fixture_suite(deck_path):
     return run_cli(
         RUNNER,

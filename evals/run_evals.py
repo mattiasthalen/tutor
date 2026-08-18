@@ -922,6 +922,18 @@ def section_lines(text, section):
     return lines
 
 
+def report_colors(stdout):
+    """A runner report's check lines as {check-id: "red"|"green"}. The suite
+    tests carry their own copies of this regex (grader independence, never
+    imported), kept in lockstep by hand — edit them together."""
+    return dict(
+        (m.group(2), m.group(1))
+        for m in (re.match(r"^(red|green)\s+(\S+) — ", line)
+                  for line in stdout.splitlines())
+        if m
+    )
+
+
 def check_commander_profile(_ctx):
     text = COMMANDER_PROFILE.read_text(encoding="utf-8")
     problems = []
@@ -1017,12 +1029,7 @@ def check_empty_deck_red(ctx):
     committed = ctx.path("build/tatyova-empty-report.txt").read_text(encoding="utf-8")
     if result.stdout != committed:
         problems.append("report differs from the committed reference")
-    colors = dict(
-        (m.group(2), m.group(1))
-        for m in (re.match(r"^(red|green)\s+(\S+) — ", line)
-                  for line in result.stdout.splitlines())
-        if m
-    )
+    colors = report_colors(result.stdout)
     must_be_red = (
         "legality.size", "legality.land_count", "curve.average", "curve.early_plays",
         "quota.ramp", "quota.draw", "quota.removal", "quota.wipe", "quota.wincon",
@@ -1103,7 +1110,7 @@ SMELL_BASELINE_V1 = (
 COMMANDER_REVIEW_SEEDS = ("politics", "functional-copy redundancy", "answer spread")
 
 
-def run_assembler(standards, brief, *extra):
+def run_assembler(standards, brief):
     """Run assemble_review.py over in-memory Findings; brief None means
     --no-brief. Returns the CompletedProcess."""
     import subprocess
@@ -1122,8 +1129,7 @@ def run_assembler(standards, brief, *extra):
         else:
             (root / "brief.json").write_text(json.dumps(brief), encoding="utf-8")
             args += ["--brief", str(root / "brief.json")]
-        return subprocess.run(args + list(extra), capture_output=True, text=True,
-                              timeout=120)
+        return subprocess.run(args, capture_output=True, text=True, timeout=120)
 
 
 def probe_finding(severity="note", cards=("Probe Card",), problem="a probe problem",
@@ -1360,6 +1366,11 @@ def check_review_flaw_registration(ctx):
         problems.append(f"Review-flawed flaw classes {sorted(axes)} are not review axes")
     if not any("smell" in f for f in flaws):
         problems.append("no flaw names the Smell it plants")
+    unknown_smells = sorted(f["smell"] for f in flaws
+                            if "smell" in f and f["smell"] not in SMELL_BASELINE_V1)
+    if unknown_smells:
+        problems.append(f"planted Smells {unknown_smells} are not locked "
+                        "baseline v1 names")
     deck_text = ctx.path(deck_rel).read_text(encoding="utf-8")
     owned = {r["Name"] for r in ctx.read_manabox_csv("collections/real-collection.csv")}
     for flaw in flaws:
@@ -1370,31 +1381,18 @@ def check_review_flaw_registration(ctx):
                 problems.append(f"{flaw['id']} card {card!r} is not owned — "
                                 "a Review flaw must not smuggle in a Check flaw")
 
-    import subprocess
-
     def run_suite(deck):
-        return subprocess.run(
-            [
-                sys.executable, str(SUITE_RUNNER),
-                "--suite", str(ctx.path("build/tatyova-landfall.suite.yaml")),
-                "--deck", str(ctx.path(deck)),
-                "--oracle", str(ctx.path("scryfall/oracle.jsonl")),
-                "--collection", str(ctx.path("collections/real-collection.csv")),
-                "--date", BUILD_REFERENCE_DATE,
-            ],
-            capture_output=True, text=True, timeout=120,
+        return run_build_cli(
+            SUITE_RUNNER,
+            "--suite", ctx.path("build/tatyova-landfall.suite.yaml"),
+            "--deck", ctx.path(deck),
+            "--oracle", ctx.path("scryfall/oracle.jsonl"),
+            "--collection", ctx.path("collections/real-collection.csv"),
+            "--date", BUILD_REFERENCE_DATE,
         )
 
-    def colors(stdout):
-        return dict(
-            (m.group(2), m.group(1))
-            for m in (re.match(r"^(red|green)\s+(\S+) — ", line)
-                      for line in stdout.splitlines())
-            if m
-        )
-
-    clean = colors(run_suite("decks/tatyova-landfall.txt").stdout)
-    flawed = colors(run_suite(deck_rel).stdout)
+    clean = report_colors(run_suite("decks/tatyova-landfall.txt").stdout)
+    flawed = report_colors(run_suite(deck_rel).stdout)
     if not clean:
         problems.append("no check lines parsed from the clean fixture run")
     leaked = [cid for cid, color in clean.items()
@@ -1402,8 +1400,9 @@ def check_review_flaw_registration(ctx):
     if leaked:
         problems.append(f"planted flaws leaked into Check territory: {leaked}")
     return not problems, "; ".join(problems) or (
-        f"{len(flaws)} Review-territory flaws registered on owned, present cards; "
-        "every Check green on the clean Deck stays green on the Review-flawed one"
+        f"{len(flaws)} Review-territory flaws registered on owned, present cards, "
+        "Smells from the locked baseline; every Check green on the clean Deck "
+        "stays green on the Review-flawed one"
     )
 
 
