@@ -51,3 +51,19 @@ _Avoid_: beginner deck, starter deck
 **Pack**:
 A Kitchen 20 Deck seen as a Jumpstart-style half: any two Packs shuffle into a 40-card game. Combining well with other Packs is part of what makes a Kitchen 20 Deck good.
 _Avoid_: half-deck, booster, packet
+
+**Check**:
+A deterministic pass/fail predicate over a Deck — same Deck, same card facts, same verdict, every run. Checks never judge taste; judgment belongs to Review.
+_Avoid_: test (tutor's own software tests), rule
+
+**Suite**:
+The full set of Checks generated for one Deck from its Brief and Format at Build start — all red on an empty Deck, all green when the Build is done.
+_Avoid_: checklist, test suite
+
+**Role**:
+A card's function tag counted by quota Checks: ramp, draw, removal, wipe, wincon, land, theme/other. One card may carry several Roles and counts toward each. Tagging a card is judgment; counting tags is mechanical.
+_Avoid_: category, archetype
+
+**Oracle**:
+The Scryfall-derived card-facts file covering the Collection — the data Checks run against. Companion artifact to the Export.
+_Avoid_: dump, card database
