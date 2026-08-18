@@ -1,0 +1,94 @@
+{
+  "provenance": {
+    "collections/real-collection.csv": {
+      "source": "Real ManaBox collection CSV export",
+      "manabox_version": "4.1.12",
+      "captured": "2026-08-18",
+      "locale_note": "Swedish-locale device, SEK prices, dot-decimal",
+      "rows": 577,
+      "sample_branch": "claude/manabox-export-sample-irxrfp",
+      "verification": "python3 evals/fixtures/collections/verify_export.py evals/fixtures/collections/real-collection.csv evals/fixtures/collections/real-deck.txt"
+    },
+    "collections/real-deck.txt": {
+      "source": "Real ManaBox deck text export (the re-importable Export)",
+      "manabox_version": "4.1.12",
+      "captured": "2026-08-18",
+      "sample_branch": "claude/manabox-export-sample-irxrfp"
+    },
+    "collections/synthetic-edge-cases.csv": {
+      "source": "Synthetic; printings live-verified against Scryfall at authoring",
+      "covers": ["etched Foil", "ja Language", "zhs Language", "promo collector numbers 1F★ / 124p / 204s"]
+    },
+    "collections/synthetic-kitchen20-pool.csv": {
+      "source": "Synthetic; printings live-verified against Scryfall at authoring",
+      "covers": ["Kitchen 20 shaped pool: mono-white FDN singletons, two rare candidates, Uncharted Haven, Plains"]
+    },
+    "collections/synthetic-standard-pool.csv": {
+      "source": "Synthetic; printings live-verified against Scryfall at authoring",
+      "covers": ["Standard shaped pool: mono-red BLB playsets and Mountains"]
+    }
+  },
+  "briefs": {
+    "briefs/kitchen20-sunlit-whiskers.txt": {
+      "format": "kitchen 20",
+      "deck": "decks/sunlit-whiskers-pack.txt",
+      "pool": "collections/synthetic-kitchen20-pool.csv"
+    },
+    "briefs/commander-tatyova-landfall.txt": {
+      "format": "commander",
+      "deck": "decks/tatyova-landfall.txt",
+      "pool": "collections/real-collection.csv"
+    },
+    "briefs/standard-ember-stampede.txt": {
+      "format": "standard",
+      "deck": null,
+      "pool": "collections/synthetic-standard-pool.csv"
+    }
+  },
+  "clean_decks": [
+    "decks/sunlit-whiskers-pack.txt",
+    "decks/tatyova-landfall.txt"
+  ],
+  "planted_flaws": {
+    "decks/sunlit-whiskers-pack-flawed.txt": [
+      {
+        "id": "kitchen20-second-rare",
+        "class": "legality",
+        "cards": ["Charming Prince"],
+        "violates": "a Kitchen 20 Pack runs exactly 1 rare"
+      },
+      {
+        "id": "kitchen20-multicolor",
+        "class": "legality",
+        "cards": ["Zoraline, Cosmos Caller"],
+        "violates": "a Kitchen 20 Pack is mono-color with no multicolor cards"
+      },
+      {
+        "id": "kitchen20-size",
+        "class": "legality",
+        "cards": [],
+        "violates": "a Kitchen 20 Pack is exactly 20 cards (this one is 21)"
+      }
+    ],
+    "decks/tatyova-landfall-flawed.txt": [
+      {
+        "id": "commander-unowned-card",
+        "class": "availability",
+        "cards": ["Rhystic Study"],
+        "violates": "every Deck card is drawn from the Collection"
+      },
+      {
+        "id": "commander-off-identity",
+        "class": "legality",
+        "cards": ["Baylen, the Haymaker"],
+        "violates": "cards stay inside the commander's color identity (Baylen adds R and W to Tatyova's GU)"
+      },
+      {
+        "id": "commander-singleton",
+        "class": "legality",
+        "cards": ["Aetherspouts"],
+        "violates": "nonbasic cards are singleton in Commander (Aetherspouts appears twice)"
+      }
+    ]
+  }
+}

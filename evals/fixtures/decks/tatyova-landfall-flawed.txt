@@ -1,0 +1,73 @@
+// Tatyova Landfall
+
+// Commander
+1 Tatyova, Benthic Druid (FDN) 247
+
+// Mainboard
+2 Aetherspouts (M15) 44
+1 Aggressive Mammoth (FDN) 551
+1 Arbor Colossus (THS) 150
+1 Arcane Epiphany (FDN) 29
+1 Biogenic Upgrade (FDN) 553
+1 Broken Wings (FDN) 214
+1 Courser of Kruphix (BNG) 119
+1 Curse of the Swine (THS) 46
+1 Divination (M15) 52
+1 Druid of the Cowl (FDN) 554
+1 Elvish Archdruid (FDN) 219
+1 Elvish Mystic (M15) 173
+1 Elvish Regrower (FDN) 104
+1 Embrace the Paradox (SOS) 186
+1 Emeritus of Abundance // Regrowth (SOS) 145
+1 Essence Scatter (SOS) 47
+1 Exclusion Mage (FDN) 508
+1 Fated Intervention (CP1) 2
+1 Fecund Greenshell (BLB) 171
+1 Font of Fertility (CP1) 3
+1 Fountainport Bell (BLB) 245
+1 Genesis Hydra (M15) 176
+1 Glorious Decay (SOS) 150
+1 Griptide (THS) 50
+1 Heaped Harvest (BLB) 175
+1 Horizon Chimera (THS) 194
+1 Hydra Broodmaster (CP1) 4
+1 Hydro-Channeler (SOS) 54
+1 Into the Flood Maw (BLB) 52
+1 Into the Roil (FDN) 509
+1 Joraga Invocation (FDN) 555
+1 Karametra's Acolyte (THS) 160
+1 Kiora's Follower (BNG) 150
+1 Lilysplash Mentor (BLB) 222
+1 Llanowar Elves (FDN) 227
+1 Longstalk Brawl (BLB) 182
+1 Nemesis of Mortals (THS) 163
+1 Nessian Game Warden (JOU) 132
+1 New Horizons (FDN) 557
+1 Noxious Newt (SOS) 155
+1 Nykthos, Shrine to Nyx (THS) 223
+1 Nylea's Disciple (THS) 167
+1 Oakhollow Village (BLB) 258
+1 Omenspeaker (THS) 57
+1 Paradox Surveyor (SOS) 208
+1 Pawpatch Formation (BLB) 186
+1 Plummet (M15) 192
+1 Pond Prophet (BLB) 229
+1 Prognostic Sphinx (CP1) 1
+1 Quick Study (SOS) 65
+1 Reclamation Sage (M15) 194
+1 Scrapshooter (BLB) 191
+1 Shared Roots (SOA) 58
+1 Stock Up (SOA) 24
+1 Studious First-Year // Rampant Growth (SOS) 162
+1 Temple of Mystery (CP1) 6
+1 Thassa's Emissary (THS) 68
+1 Thornweald Archer (FDN) 559
+1 Thrashing Brontodon (FDN) 560
+1 Three Tree Rootweaver (BLB) 198
+1 Tolarian Terror (FDN) 167
+1 Topiary Lecturer (SOS) 165
+1 Rhystic Study (PCY) 45 // planted: unowned
+1 Baylen, the Haymaker (BLB) 205 // planted: off identity
+
+19 Forest
+15 Island

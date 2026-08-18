@@ -1,0 +1,4 @@
+name: Sunlit Whiskers
+format: kitchen 20
+identity: white
+notes: teaching Pack for the kids — cats and lifegain feel, combines with any other Pack
