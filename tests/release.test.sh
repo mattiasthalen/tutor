@@ -35,17 +35,6 @@ check() {
   fi
 }
 
-# check_not <description> <command...> — passes when the command exits nonzero.
-check_not() {
-  local desc=$1
-  shift
-  if "$@" >/dev/null 2>&1; then
-    not_ok "$desc" "expected failure from: $*"
-  else
-    ok "$desc"
-  fi
-}
-
 # Print the body of the CHANGELOG section whose header starts with "## [<name>]".
 changelog_section() { # <file> <name>
   awk -v name="$2" '
@@ -195,8 +184,8 @@ test_dry_run_cuts_nothing() {
   check "exits 0" test "$RELEASE_STATUS" -eq 0
   check "prints the planned version 0.2.0" grep -q '0\.2\.0' "$F.out"
   check "prints the planned tag tutor--v0.2.0" grep -q 'tutor--v0\.2\.0' "$F.out"
-  check "shows the validators passing as part of the demo" \
-    grep -q 'Validation passed' "$F.out"
+  check "runs the validators and completes the rehearsal" \
+    grep -q 'release: dry run complete' "$F.out"
   check "leaves every file untouched" \
     test -z "$(git -C "$F" status --porcelain)"
   check "plugin.json still pins 0.1.0" \
@@ -232,10 +221,84 @@ test_validator_gates_the_release() {
   check "creates no tag" test -z "$(git -C "$F" tag)"
   check "pushes no tag" test -z "$(git ls-remote --tags "$F.origin")"
   check "pushes no commit" test "$(remote_main "$F")" = "$baseline"
+  check "leaves the tree byte-clean — no half-applied bump" \
+    test -z "$(git -C "$F" status --porcelain)"
+  check "plugin.json still pins 0.1.0" \
+    test "$(jq -r .version "$F/.claude-plugin/plugin.json")" = 0.1.0
 
   run_release "$F" minor --dry-run
-  check "the dry-run preflight reports the same failure" \
+  check "the dry-run rehearsal reports the same failure" \
     test "$RELEASE_STATUS" -ne 0
+
+  # Repair the break: the refused release must not block the next attempt.
+  git -C "$F" revert --no-edit HEAD >/dev/null
+  git -C "$F" push -q origin main
+  run_release "$F" minor
+  check "a later run is not blocked by the refused one" \
+    test "$RELEASE_STATUS" -eq 0
+  check "the retried release lands its tag" remote_has_tag "$F" tutor--v0.2.0
+}
+
+# --- Test: a failed tag or push leaves no public untagged bump (AC 1) --------
+
+test_tag_failure_leaves_no_public_bump() {
+  printf '\n# a failed tag step publishes nothing: no public bump without its tag\n'
+  local F baseline
+  F=$(new_fixture)
+  baseline=$(git -C "$F" rev-parse HEAD)
+
+  # Occupy the tag name the release will need. The tag step must refuse, and
+  # the refusal must reach the remote as nothing at all.
+  git -C "$F" tag tutor--v0.2.0 "$baseline"
+
+  run_release "$F" minor
+
+  check "refuses when the tag cannot be created" test "$RELEASE_STATUS" -ne 0
+  check "pushes no commit" test "$(remote_main "$F")" = "$baseline"
+  check "pushes no tag" test -z "$(git ls-remote --tags "$F.origin")"
+  check "rolls the bump commit back" \
+    test "$(git -C "$F" rev-parse HEAD)" = "$baseline"
+  check "leaves the tree byte-clean" \
+    test -z "$(git -C "$F" status --porcelain)"
+  check "plugin.json still pins 0.1.0" \
+    test "$(jq -r .version "$F/.claude-plugin/plugin.json")" = 0.1.0
+  check "leaves the pre-existing tag alone" \
+    git -C "$F" rev-parse -q --verify refs/tags/tutor--v0.2.0
+
+  # Clear the collision: the refused release must not block the next attempt.
+  git -C "$F" tag -d tutor--v0.2.0 >/dev/null
+  run_release "$F" minor
+  check "a later run cuts the release" test "$RELEASE_STATUS" -eq 0
+  check "the retried release lands commit and tag together" \
+    remote_has_tag "$F" tutor--v0.2.0
+}
+
+test_push_failure_leaves_no_half_release() {
+  printf '\n# a failed push rolls the release back: commit and tag travel together\n'
+  local F baseline
+  F=$(new_fixture)
+  baseline=$(git -C "$F" rev-parse HEAD)
+
+  # Take the remote away. The push must fail, and the failure must leave no
+  # local half-release behind either.
+  mv "$F.origin" "$F.origin.away"
+
+  run_release "$F" minor
+
+  check "refuses when the push fails" test "$RELEASE_STATUS" -ne 0
+  check "rolls the bump commit back" \
+    test "$(git -C "$F" rev-parse HEAD)" = "$baseline"
+  check "rolls the tag back" test -z "$(git -C "$F" tag)"
+  check "leaves the tree byte-clean" \
+    test -z "$(git -C "$F" status --porcelain)"
+
+  # Restore the remote: the refused release must not block the next attempt.
+  mv "$F.origin.away" "$F.origin"
+  run_release "$F" minor
+  check "a later run cuts the release" test "$RELEASE_STATUS" -eq 0
+  check "the commit and tag land together" remote_has_tag "$F" tutor--v0.2.0
+  check "remote main carries the bump" \
+    test "$(remote_main "$F")" = "$(git -C "$F" rev-parse HEAD)"
 }
 
 # --- Test: successive releases stack in the changelog (AC 1, AC 2) -----------
@@ -317,7 +380,6 @@ test_guardrails_keep_the_release_deliberate() {
 
   # An empty [Unreleased] means there is nothing deliberate to ship.
   F=$(new_fixture)
-  baseline=$(git -C "$F" rev-parse HEAD)
   awk '/^### Added/ { exit } { print }' "$F/CHANGELOG.md" >"$F/cl.tmp"
   mv "$F/cl.tmp" "$F/CHANGELOG.md"
   git -C "$F" commit -qam "empty the unreleased section"
@@ -335,6 +397,8 @@ test_guardrails_keep_the_release_deliberate() {
 test_release_run_performs_whole_release
 test_dry_run_cuts_nothing
 test_validator_gates_the_release
+test_tag_failure_leaves_no_public_bump
+test_push_failure_leaves_no_half_release
 test_successive_releases_stack
 test_bump_arithmetic
 test_guardrails_keep_the_release_deliberate

@@ -5,8 +5,14 @@
 # .claude-plugin/plugin.json — the sole version authority. This script
 # performs the whole release: set the version, mirror it into every skill's
 # metadata.version (plugin and skills version in lockstep, one organism),
-# draft the CHANGELOG.md entry, run the plugin validators, commit, push, and
-# tag tutor--v{version} via `claude plugin tag --push`.
+# draft the CHANGELOG.md entry, run the plugin validators, commit, tag
+# tutor--v{version}, and push the commit and tag together.
+#
+# The bump lands on a staged temporary copy first and the validators run
+# against that copy — the real tree changes only once the staged release
+# passes. A failure later (commit, tag, push) rolls the release back. Either
+# way a refusal leaves the tree clean, never blocks the retry, and puts no
+# untagged bump on the remote.
 #
 # Usage: scripts/release <major|minor|patch|X.Y.Z>
 
@@ -23,10 +29,11 @@ Usage: scripts/release <major|minor|patch|X.Y.Z> [--dry-run]
 
 Cut a tutor release: bump the pinned version in .claude-plugin/plugin.json,
 mirror it into every skill's metadata.version, draft the CHANGELOG.md entry,
-run the plugin validators, commit, push, and tag tutor--v{version}.
+run the plugin validators, commit, tag tutor--v{version}, and push.
 
-With --dry-run, print the whole plan and run the validators, but change,
-commit, tag, and push nothing.
+With --dry-run, rehearse the whole release — the bump, the mirror, and the
+changelog draft land on a staged temporary copy and the validators run
+against it — but change, commit, tag, and push nothing.
 EOF
 }
 
@@ -98,7 +105,7 @@ SKILLS=(skills/*/SKILL.md)
 
 # --- The release must ship something deliberate ------------------------------
 
-grep -q '^## \[Unreleased\]' "$CHANGELOG" ||
+grep -Eq '^## \[Unreleased\][[:blank:]]*$' "$CHANGELOG" ||
   die "$CHANGELOG has no [Unreleased] section to draft the release entry from"
 
 UNRELEASED_BODY=$(awk '
@@ -109,7 +116,12 @@ UNRELEASED_BODY=$(awk '
 [[ -n "${UNRELEASED_BODY//[$' \t\n']/}" ]] ||
   die "the [Unreleased] section of $CHANGELOG is empty — nothing deliberate to ship; write the release notes first"
 
-# --- Dry run: demo the whole release without cutting one ---------------------
+# --- A release starts from a clean tree --------------------------------------
+
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  [[ -z "$(git status --porcelain)" ]] ||
+    die "the working tree is not clean — a release is a deliberate commit of the bump alone; commit or stash first"
+fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   cat <<EOF
@@ -121,27 +133,24 @@ release: dry run — nothing will be changed, committed, tagged, or pushed
            ${SKILLS[*]} (metadata.version mirrored)
            $CHANGELOG ([$NEXT] - $TODAY entry drafted from [Unreleased])
 
-release: preflight — running the validators against the current tree
+release: rehearsal — staging the bump on a temporary copy and validating it
 EOF
-  claude plugin validate . --strict
-  claude plugin validate skills --strict
-  claude plugin validate commands --strict
-  printf 'release: dry run complete — rerun without --dry-run to cut %s\n' "$TAG"
-  exit 0
 fi
 
-# --- A release starts from a clean tree --------------------------------------
+# --- Stage the bump ----------------------------------------------------------
+# The bump lands on a temporary copy of the tree and the validators run
+# against that copy. The real tree is untouched until the staged release
+# passes, so a refusal cuts nothing and never blocks the retry.
 
-[[ -z "$(git status --porcelain)" ]] ||
-  die "the working tree is not clean — a release is a deliberate commit of the bump alone; commit or stash first"
+STAGE=$(mktemp -d)
+trap 'rm -rf "$STAGE"' EXIT
 
-# --- Set the version and mirror it into every skill --------------------------
+git ls-files -z --cached --others --exclude-standard |
+  tar --null -T - -cf - | tar -xf - -C "$STAGE"
 
-jq --arg v "$NEXT" '.version = $v' "$MANIFEST" >"$MANIFEST.tmp"
-mv "$MANIFEST.tmp" "$MANIFEST"
+jq --arg v "$NEXT" '.version = $v' "$MANIFEST" >"$STAGE/$MANIFEST"
 
-mirror_skill() { # <SKILL.md path>
-  local file=$1
+mirror_skill() { # <SKILL.md path> — stage the file with metadata.version mirrored
   awk -v ver="$NEXT" '
     /^---[ \t]*$/ { fence++; in_metadata = 0; print; next }
     fence == 1 && /^metadata:[ \t]*$/ { in_metadata = 1; print; next }
@@ -154,18 +163,13 @@ mirror_skill() { # <SKILL.md path>
     fence == 1 && in_metadata && /^[^ \t]/ { in_metadata = 0 }
     { print }
     END { exit done ? 0 : 3 }
-  ' "$file" >"$file.tmp" || {
-    rm -f "$file.tmp"
-    die "$file has no metadata.version to mirror the release into"
-  }
-  mv "$file.tmp" "$file"
+  ' "$1" >"$STAGE/$1" ||
+    die "$1 has no metadata.version to mirror the release into"
 }
 
 for skill in "${SKILLS[@]}"; do
   mirror_skill "$skill"
 done
-
-# --- Draft the changelog entry -----------------------------------------------
 
 awk -v ver="$NEXT" -v date="$TODAY" '
   function flush(  i, first, last) {
@@ -182,27 +186,50 @@ awk -v ver="$NEXT" -v date="$TODAY" '
   state == 0 && /^## \[Unreleased\][ \t]*$/ { print; state = 1; buffered = 0; next }
   state == 1 { buf[buffered++] = $0; next }
   { print }
-  END {
-    if (state == 1) flush()
-    if (state == 0) exit 3
-  }
-' "$CHANGELOG" >"$CHANGELOG.tmp" || {
-  rm -f "$CHANGELOG.tmp"
-  die "$CHANGELOG has no [Unreleased] section to draft the release entry from"
+  END { if (state == 1) flush() }
+' "$CHANGELOG" >"$STAGE/$CHANGELOG"
+
+# --- Validate the staged release ---------------------------------------------
+
+(
+  cd "$STAGE" &&
+    claude plugin validate . --strict &&
+    claude plugin validate skills --strict &&
+    claude plugin validate commands --strict
+) || die "validation refused the staged release — the tree is untouched; fix the plugin and rerun"
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  printf 'release: dry run complete — rerun without --dry-run to cut %s\n' "$TAG"
+  exit 0
+fi
+
+# --- Apply the validated bump ------------------------------------------------
+
+for file in "$MANIFEST" "${SKILLS[@]}" "$CHANGELOG"; do
+  cp "$STAGE/$file" "$file"
+done
+
+# --- Commit, tag, push -------------------------------------------------------
+# The tag is created before anything goes public, and the commit and tag are
+# pushed together in one atomic push, so no untagged bump can reach the
+# remote (ADR 0004: every release is tagged). A failure at any step rolls the
+# release back to the pre-release state, keeping the retry unblocked.
+
+BASELINE=$(git rev-parse HEAD)
+TAG_CREATED=0
+
+roll_back() { # <what failed>
+  if [[ "$TAG_CREATED" -eq 1 ]]; then
+    git tag -d "$TAG" >/dev/null
+  fi
+  git reset -q --hard "$BASELINE"
+  die "$1 — the release was rolled back; the tree is clean and nothing was pushed"
 }
-mv "$CHANGELOG.tmp" "$CHANGELOG"
-
-# --- Validate what is about to ship ------------------------------------------
-
-claude plugin validate . --strict
-claude plugin validate skills --strict
-claude plugin validate commands --strict
-
-# --- Commit, push, tag -------------------------------------------------------
 
 git add "$MANIFEST" "$CHANGELOG" "${SKILLS[@]}"
-git commit -m "Release $TAG"
-git push origin HEAD
-claude plugin tag --push -m 'tutor v%s' .
+git commit -m "Release $TAG" || roll_back "committing the bump failed"
+claude plugin tag -m 'tutor v%s' . || roll_back "tagging $TAG failed"
+TAG_CREATED=1
+git push --atomic origin HEAD "refs/tags/$TAG" || roll_back "pushing the commit and tag failed"
 
 printf 'release: %s cut — version %s pinned, tagged, and pushed\n' "$TAG" "$NEXT"

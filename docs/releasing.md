@@ -43,22 +43,29 @@ The bump argument is `major`, `minor`, `patch`, or an explicit `X.Y.Z`; the
 next version must move strictly forward. The script then performs the whole
 release, in order:
 
-1. Sets the new version in `.claude-plugin/plugin.json`.
+1. Sets the new version in `.claude-plugin/plugin.json` — applied to a
+   staged temporary copy of the tree, not the real one.
 2. Mirrors it into every skill's `metadata.version` — plugin and skills
    version in lockstep, one organism.
 3. Drafts the changelog entry: the `[Unreleased]` body moves under a dated
    `[{version}]` heading, leaving an empty `[Unreleased]` on top.
 4. Runs the strict plugin validators (`claude plugin validate .`, `skills`,
-   `commands` — all `--strict`).
-5. Commits the bump, pushes it, and tags `tutor--v{version}` via
-   `claude plugin tag --push`, which validates the tag against the manifest
-   before pushing it.
+   `commands` — all `--strict`) against that staged copy. The real tree is
+   untouched until they pass.
+5. Applies the validated bump to the real tree, commits it, tags
+   `tutor--v{version}` via `claude plugin tag` (which validates the tag
+   against the manifest), and pushes the commit and the tag together in one
+   atomic push — the bump never reaches the remote without its tag.
 
 Any refusal — dirty tree, backward version, empty notes, failed validation —
-cuts nothing: no commit, no tag, no push.
+cuts nothing: no commit, no tag, no push. A failure later in the flow —
+committing, tagging, pushing — rolls the release back to that same clean
+state, so a retry is never blocked and no untagged bump can land on the
+remote (every release is tagged, per ADR 0004).
 
-`--dry-run` prints the same plan and runs the validators as a preflight, but
-changes, commits, tags, and pushes nothing.
+`--dry-run` prints the plan and performs the same staged rehearsal — bump,
+mirror, changelog draft, and validators, all against the temporary copy —
+but changes, commits, tags, and pushes nothing.
 
 The whole flow is covered by `tests/release.test.sh`, which releases fixture
 repositories against local bare remotes; it runs in CI alongside the
