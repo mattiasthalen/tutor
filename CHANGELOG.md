@@ -43,3 +43,16 @@ mean for prompt-ware.
   color identity, banlist, Game Changers, must-include — plus the
   `mana_value` Oracle vocabulary; the `build-smoke` offline eval case grades
   the whole seam. (#53)
+- Review skill: `/tutor:review` judges a finished Deck — any ManaBox deck,
+  tutor-built or not — along the two axes (ADR 0006): two parallel subagents,
+  Standards (the locked Smell baseline v1 plus per-Format `review_standards`
+  authored into the Commander profile — politics, functional-copy redundancy,
+  answer spread — where the profile overrides the baseline) and Brief
+  (fidelity to stated intent), with a sequential two-pass fallback. Findings
+  are severity + named cards + problem + at most one suggestion; the
+  stdlib-only assembler computes every Verdict arithmetically (blocker →
+  rebuild, notes → playable, clean → ship, overall = worst axis), caps five
+  Findings per axis worst first, and renders the Review Block; closings are
+  Verdict-dependent and Review never edits the Deck. A Review-flawed fixture
+  Deck plants Smell- and Brief-class flaws the Suite provably cannot see;
+  the `review-smoke` offline eval case hard-grades the arithmetic. (#55)

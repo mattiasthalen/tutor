@@ -43,6 +43,7 @@ CASE_NAMES = {
     2: "oracle-smoke",
     3: "brief-smoke",
     4: "build-smoke",
+    5: "review-smoke",
 }
 
 
@@ -1082,6 +1083,330 @@ def check_build_skill_content(_ctx):
     )
 
 
+# --- Review skill predicates (issue #55) ------------------------------------
+# The review-smoke case grades Review's deterministic shadows — the assembler
+# CLI (verdict arithmetic, the Review Block shape, the Finding shape), the
+# wiring, the locked Smell baseline, the Commander review standards, and the
+# Review-flawed fixture registration. Judgment quality (whether a live Review
+# catches the planted flaws) stays soft, dev-time judged.
+
+REVIEW_SKILL_PATH = REPO_ROOT / "skills" / "review" / "SKILL.md"
+REVIEW_COMMAND_PATH = REPO_ROOT / "commands" / "review.md"
+REVIEW_ASSEMBLER = REPO_ROOT / "skills" / "review" / "scripts" / "assemble_review.py"
+
+SMELL_BASELINE_V1 = (
+    "synergy island", "dead card", "win-more", "no comeback plan",
+    "piloting overload", "fragile mana", "theme tax", "redundancy gap",
+    "curve lie", "interaction mismatch",
+)
+
+COMMANDER_REVIEW_SEEDS = ("politics", "functional-copy redundancy", "answer spread")
+
+
+def run_assembler(standards, brief, *extra):
+    """Run assemble_review.py over in-memory Findings; brief None means
+    --no-brief. Returns the CompletedProcess."""
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        args = [
+            sys.executable, str(REVIEW_ASSEMBLER),
+            "--deck-name", "Probe Deck", "--date", "2026-08-18",
+            "--standards", str(root / "standards.json"),
+        ]
+        (root / "standards.json").write_text(json.dumps(standards), encoding="utf-8")
+        if brief is None:
+            args.append("--no-brief")
+        else:
+            (root / "brief.json").write_text(json.dumps(brief), encoding="utf-8")
+            args += ["--brief", str(root / "brief.json")]
+        return subprocess.run(args + list(extra), capture_output=True, text=True,
+                              timeout=120)
+
+
+def probe_finding(severity="note", cards=("Probe Card",), problem="a probe problem",
+                  **suggestion):
+    entry = {"severity": severity, "cards": list(cards), "problem": problem}
+    entry.update(suggestion)
+    return entry
+
+
+def block_lines(stdout, prefix):
+    return [l for l in stdout.splitlines() if l.startswith(prefix)]
+
+
+def check_review_verdict_arithmetic(_ctx):
+    problems = []
+    cases = [
+        # (standards findings, brief findings, axis verdicts, overall)
+        ([], [], ("standards: ship", "brief: ship"), "verdict: ship"),
+        ([probe_finding()], [], ("standards: playable", "brief: ship"),
+         "verdict: playable"),
+        ([probe_finding(), probe_finding("blocker")], [probe_finding()],
+         ("standards: rebuild", "brief: playable"), "verdict: rebuild"),
+        ([], [probe_finding("blocker")], ("standards: ship", "brief: rebuild"),
+         "verdict: rebuild"),
+        # A blocker past the display cap still rebuilds the axis.
+        ([probe_finding(cards=(f"Note {n}",)) for n in range(5)]
+         + [probe_finding("blocker", ("Buried Blocker",))], [],
+         ("standards: rebuild", "brief: ship"), "verdict: rebuild"),
+    ]
+    for standards, brief, axes, overall in cases:
+        run = run_assembler(standards, brief)
+        if run.returncode != 0:
+            problems.append(f"assembler failed: {run.stderr.strip()[:120]}")
+            continue
+        lines = run.stdout.splitlines()
+        for want in (*axes, overall):
+            if want not in lines:
+                problems.append(
+                    f"{len(standards)} standards / {len(brief)} brief findings: "
+                    f"missing {want!r}")
+    twice = [run_assembler([probe_finding("blocker")], [probe_finding()]).stdout
+             for _ in range(2)]
+    if twice[0] != twice[1]:
+        problems.append("the same Findings assembled to different bytes")
+    return not problems, "; ".join(problems) or (
+        "blocker->rebuild, notes->playable, clean->ship, overall = worst axis, "
+        "capped blockers still count, byte-deterministic"
+    )
+
+
+def check_review_block_shape(_ctx):
+    run = run_assembler(
+        [probe_finding("blocker", ("Corsair Captain", "Pirate's Cutlass"),
+                       "a two-card island")],
+        [probe_finding("note", ("Vaporkin",), "off the stated intent")],
+    )
+    if run.returncode != 0:
+        return False, f"assembler failed: {run.stderr.strip()[:120]}"
+    lines = run.stdout.splitlines()
+    problems = []
+    if lines[:3] != ["deck: Probe Deck", "date: 2026-08-18", "verdict: rebuild"]:
+        problems.append(f"reference lines are {lines[:3]}")
+    if len(block_lines(run.stdout, "verdict: ")) != 1:
+        problems.append("not exactly one overall verdict: line")
+    try:
+        s, b = lines.index("standards: rebuild"), lines.index("brief: playable")
+        if not s < b:
+            problems.append("axis sections out of order")
+        if "Corsair Captain; Pirate's Cutlass" not in lines[s + 1]:
+            problems.append("the standards Finding does not name its cards")
+        if "Vaporkin" not in lines[b + 1]:
+            problems.append("the brief Finding does not name its card")
+    except ValueError as exc:
+        problems.append(f"missing axis section: {exc}")
+    return not problems, "; ".join(problems) or (
+        "deck:/date: reference lines, one verdict: line, standards then brief "
+        "side by side, Findings naming cards"
+    )
+
+
+def check_review_findings_cap(_ctx):
+    run = run_assembler(
+        [probe_finding(cards=(f"Card {n}",)) for n in range(1, 8)], [])
+    if run.returncode != 0:
+        return False, f"assembler failed: {run.stderr.strip()[:120]}"
+    shown = block_lines(run.stdout, "note — ")
+    rest = block_lines(run.stdout, "rest: ")
+    problems = []
+    if len(shown) != 5:
+        problems.append(f"{len(shown)} Findings shown, cap is 5")
+    if rest != ["rest: 2 more notes — Card 6; Card 7"]:
+        problems.append(f"rest summary is {rest}")
+    ordered = run_assembler(
+        [probe_finding("note", ("A Note",)), probe_finding("blocker", ("A Blocker",))],
+        [])
+    lines = ordered.stdout.splitlines()
+    if not lines.index("blocker — A Blocker — a probe problem") < lines.index(
+            "note — A Note — a probe problem"):
+        problems.append("blockers do not rise above notes (worst first)")
+    return not problems, "; ".join(problems) or (
+        "five shown worst first, the rest folded into a one-line summary naming cards"
+    )
+
+
+def check_review_finding_shape(_ctx):
+    problems = []
+    good = run_assembler(
+        [probe_finding(swap="Voyaging Satyr"),
+         probe_finding(maybeboard="Rhystic Study")], [])
+    if good.returncode != 0:
+        problems.append(f"one-suggestion Findings refused: {good.stderr.strip()[:120]}")
+    elif (" — swap: Voyaging Satyr" not in good.stdout
+          or " — maybeboard: Rhystic Study" not in good.stdout):
+        problems.append("suggestions do not render as swap:/maybeboard:")
+    for label, bad in (
+        ("two suggestions", probe_finding(swap="A", maybeboard="B")),
+        ("no cards", probe_finding(cards=())),
+        ("unknown severity", probe_finding(severity="fatal")),
+        ("unknown key", probe_finding(fix="edit the deck")),
+    ):
+        run = run_assembler([bad], [])
+        if run.returncode != 2 or run.stdout != "":
+            problems.append(
+                f"{label}: exit {run.returncode} with "
+                f"{'output' if run.stdout else 'no output'}, want a clean refusal")
+    return not problems, "; ".join(problems) or (
+        "severity + cards + problem + at most one suggestion enforced; "
+        "malformed Findings refused with exit 2 and no partial Block"
+    )
+
+
+def check_review_no_brief(_ctx):
+    run = run_assembler([probe_finding()], None)
+    if run.returncode != 0:
+        return False, f"assembler failed: {run.stderr.strip()[:120]}"
+    lines = run.stdout.splitlines()
+    problems = []
+    if "brief: no Brief available" not in lines:
+        problems.append("the Brief axis does not report 'no Brief available'")
+    if "verdict: playable" not in lines:
+        problems.append("the overall Verdict is not the Standards axis alone")
+    return not problems, "; ".join(problems) or (
+        "Standards-only review: brief axis reports no Brief available, "
+        "overall = the Standards verdict"
+    )
+
+
+def check_review_wiring(_ctx):
+    problems = []
+    command = REVIEW_COMMAND_PATH.read_text(encoding="utf-8")
+    if "skills/review/SKILL.md" not in command:
+        problems.append("commands/review.md never hands off to skills/review/SKILL.md")
+    skill = REVIEW_SKILL_PATH.read_text(encoding="utf-8")
+    pinned = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))["version"]
+    m = re.search(r"^metadata:\n[ \t]+version:[ \t]*(\S+)", skill, re.MULTILINE)
+    if not m:
+        problems.append("skills/review/SKILL.md carries no metadata.version")
+    elif m.group(1) != pinned:
+        problems.append(
+            f"skill metadata.version {m.group(1)} != pinned plugin version {pinned}"
+        )
+    return not problems, "; ".join(problems) or (
+        f"/tutor:review wraps skills/review/SKILL.md, versioned {pinned} in lockstep"
+    )
+
+
+def check_smell_baseline(_ctx):
+    text = REVIEW_SKILL_PATH.read_text(encoding="utf-8")
+    missing = [name for name in SMELL_BASELINE_V1 if name not in text]
+    return not missing, (
+        f"skills/review/SKILL.md lacks the locked Smells {missing}" if missing
+        else "all ten Smell baseline v1 names are pinned in the skill"
+    )
+
+
+def check_commander_review_standards(_ctx):
+    text = COMMANDER_PROFILE.read_text(encoding="utf-8")
+    standards = section_lines(text, "review_standards")
+    named = {l.split(":", 1)[0] for l in standards}
+    problems = []
+    missing = [seed for seed in COMMANDER_REVIEW_SEEDS if seed not in named]
+    if missing:
+        problems.append(f"the Commander profile lacks review standards {missing}")
+    if any(not l.partition(":")[2].strip() for l in standards):
+        problems.append("a review standard carries no guidance text")
+    skill = REVIEW_SKILL_PATH.read_text(encoding="utf-8")
+    if "overrides the baseline" not in skill:
+        problems.append("the skill never pins that the profile overrides the baseline")
+    if "review_standards" not in skill:
+        problems.append("the skill never reads the profile's review_standards")
+    return not problems, "; ".join(problems) or (
+        "politics, functional-copy redundancy, answer spread authored as data; "
+        "the skill reads them and pins profile-overrides-baseline"
+    )
+
+
+def check_review_skill_content(_ctx):
+    """Tripwire, not proof: the review flow is prompt-ware judged by its
+    artifacts; these needles keep the load-bearing contract sentences from
+    silently vanishing in an edit."""
+    text = REVIEW_SKILL_PATH.read_text(encoding="utf-8")
+    needles = [
+        "two parallel subagents",
+        "one per axis",
+        "side by side",
+        "sequential two-pass fallback",
+        "trusts the green Suite",
+        "never recounts",
+        "mis-set for the Brief",
+        "never edits the Deck",
+        "ManaBox import",
+        "consumes the Review Block",
+        "no Brief available",
+        "worst first",
+        "Power fit, mass land denial, chained extra turns, and early two-card combos",
+    ]
+    missing = [n for n in needles if n not in text]
+    return not missing, (
+        f"skills/review/SKILL.md lacks {missing}" if missing
+        else "fan-out and fallback, Suite trust, the mis-set flag, the no-edit rule, "
+             "Verdict-dependent closings, and the judgment-not-Checks list are pinned"
+    )
+
+
+def check_review_flaw_registration(ctx):
+    manifest = json.loads(ctx.path("manifest.json").read_text(encoding="utf-8"))
+    deck_rel = "decks/tatyova-landfall-review-flawed.txt"
+    flaws = manifest.get("planted_flaws", {}).get(deck_rel, [])
+    problems = []
+    if not flaws:
+        problems.append(f"{deck_rel} registers no planted flaws")
+    axes = {f.get("class") for f in flaws}
+    if axes - {"standards", "brief"}:
+        problems.append(f"Review-flawed flaw classes {sorted(axes)} are not review axes")
+    if not any("smell" in f for f in flaws):
+        problems.append("no flaw names the Smell it plants")
+    deck_text = ctx.path(deck_rel).read_text(encoding="utf-8")
+    owned = {r["Name"] for r in ctx.read_manabox_csv("collections/real-collection.csv")}
+    for flaw in flaws:
+        for card in flaw.get("cards", []):
+            if card not in deck_text:
+                problems.append(f"{flaw['id']} names {card!r} not in the Deck")
+            if card not in owned:
+                problems.append(f"{flaw['id']} card {card!r} is not owned — "
+                                "a Review flaw must not smuggle in a Check flaw")
+
+    import subprocess
+
+    def run_suite(deck):
+        return subprocess.run(
+            [
+                sys.executable, str(SUITE_RUNNER),
+                "--suite", str(ctx.path("build/tatyova-landfall.suite.yaml")),
+                "--deck", str(ctx.path(deck)),
+                "--oracle", str(ctx.path("scryfall/oracle.jsonl")),
+                "--collection", str(ctx.path("collections/real-collection.csv")),
+                "--date", BUILD_REFERENCE_DATE,
+            ],
+            capture_output=True, text=True, timeout=120,
+        )
+
+    def colors(stdout):
+        return dict(
+            (m.group(2), m.group(1))
+            for m in (re.match(r"^(red|green)\s+(\S+) — ", line)
+                      for line in stdout.splitlines())
+            if m
+        )
+
+    clean = colors(run_suite("decks/tatyova-landfall.txt").stdout)
+    flawed = colors(run_suite(deck_rel).stdout)
+    if not clean:
+        problems.append("no check lines parsed from the clean fixture run")
+    leaked = [cid for cid, color in clean.items()
+              if color == "green" and flawed.get(cid) != "green"]
+    if leaked:
+        problems.append(f"planted flaws leaked into Check territory: {leaked}")
+    return not problems, "; ".join(problems) or (
+        f"{len(flaws)} Review-territory flaws registered on owned, present cards; "
+        "every Check green on the clean Deck stays green on the Review-flawed one"
+    )
+
+
 # --- Registry: exact expectation text -> fixed predicate --------------------
 # Keys are pinned verbatim to the strings in evals.json; editing a wording
 # means editing both, deliberately. Unregistered expectations are soft.
@@ -1149,6 +1474,26 @@ EXPECTATION_CHECKS = {
         check_build_wiring,
     "The build skill's text pins the front half: the Suite and its report written to the Collection home, the offer to generate an absent Oracle via /tutor:oracle when network allows, a pasted Export or Block beating the file, a refused constraint going back to the Brief, and no card picked before the Suite exists.":
         check_build_skill_content,
+    "Verdicts are arithmetic over Findings, hard-graded through the assembler: any blocker makes an axis rebuild, only notes playable, clean ship, the overall Verdict is the worst axis, a blocker past the display cap still rebuilds, and the same Findings assemble to the same bytes — no fresh judgment in aggregation.":
+        check_review_verdict_arithmetic,
+    "The assembled Review Block carries deck: and date: reference lines, one overall verdict: line, then one section per axis — standards: first, brief: second, side by side, never merged or reranked — each with its own verdict and Findings naming cards.":
+        check_review_block_shape,
+    "Each axis shows at most five Findings, worst first, with a one-line summary of the rest naming its cards.":
+        check_review_findings_cap,
+    "A Finding is a severity (blocker or note), named cards, the problem, and at most one suggestion — an owned swap or an unowned Maybeboard candidate; the assembler refuses a malformed Finding with exit 2 and no partial Block.":
+        check_review_finding_shape,
+    "With no Brief the review runs Standards-only: the Brief axis reports no Brief available and the overall Verdict is the Standards axis alone.":
+        check_review_no_brief,
+    "The /tutor:review command is a thin wrapper handing off to the review skill, whose metadata.version matches the plugin manifest's pinned version.":
+        check_review_wiring,
+    "The review skill pins the locked Smell baseline v1 by name: synergy island, dead card, win-more, no comeback plan, piloting overload, fragile mana, theme tax, redundancy gap, curve lie, interaction mismatch.":
+        check_smell_baseline,
+    "The Commander profile authors the per-Format review standards from the recorded seeds — politics, functional-copy redundancy, answer spread — as data the Standards axis reads, and the review skill pins that the profile overrides the baseline.":
+        check_commander_review_standards,
+    "The review skill's text pins the contract: two parallel subagents, one per axis, aggregated side by side with the sequential two-pass fallback as robustness; Review trusts the green Suite and never recounts Check territory but may flag a Check target as mis-set for the Brief; Review never edits the Deck; ship closes with the ManaBox import suggestion while playable and rebuild offer a Build re-run consuming the Review Block; Power fit, mass land denial, chained extra turns, and early two-card combos are Review judgment, not Checks.":
+        check_review_skill_content,
+    "The Review-flawed fixture Deck plants only Review-territory flaws: every Check green on the clean fixture Deck stays green on it through the unmodified runner, and each registered standards/brief flaw names owned cards present in the Deck.":
+        check_review_flaw_registration,
 }
 
 
