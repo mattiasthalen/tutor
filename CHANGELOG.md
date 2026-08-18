@@ -56,3 +56,24 @@ mean for prompt-ware.
   Verdict-dependent and Review never edits the Deck. A Review-flawed fixture
   Deck plants Smell- and Brief-class flaws the Suite provably cannot see;
   the `review-smoke` offline eval case hard-grades the arithmetic. (#55)
+- Build to green: `/tutor:build` now runs the whole loop — adding and
+  swapping owned cards until the Suite is green through the fixed runner, or
+  ending red with an honest report and the human's options (loosen the
+  Brief, accept the Deck as-is, acquire cards) — and ships a
+  ManaBox-importable Deck Block to the Collection home's deck library:
+  nonbasics pinned to the exact owned printing (the fancier owned print when
+  several exist), basics lumped per name last in each Board, inline category
+  comments, the Maybeboard as the unpinned possibly-unowned wishlist, and
+  the short-form Fan Content footer. Copies in existing Decks are committed
+  by default: the Brief's `donor:` lines land in the Suite as data, the
+  runner's availability Check honors them, and declined contention is
+  reported out loud ("wanted Rhystic Study; all copies committed to
+  Tatyova") via the new stdlib-only availability helper; `ship_deck.py`
+  round-trips the shipped Block byte-identically. A Deck card missing from
+  the Oracle degrades per-card to flagged model knowledge, never a hard
+  failure. The runner also learned to read pinned multi-faced names
+  (`Emeritus of Abundance // Regrowth (SOS) 145`) without truncating them as
+  comments. The `build-deep` offline eval case grades the finished Build —
+  Collection-only drawing, Format legality, the ManaBox-importable Block,
+  the round-trip, targets never bent — with the Brief's-intent grader kept
+  soft, and a paste-shaped Export case as parser-tolerance smoke. (#54)

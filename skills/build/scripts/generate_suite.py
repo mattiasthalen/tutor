@@ -5,7 +5,9 @@ At Build start the Suite — every deterministic Check the Deck must pass — is
 generated from the Brief and its Format profile, before any card is picked
 (ADR 0003 as amended by ADR 0005). This script does the judgment-free part:
 it snapshots the profile's targets, applies the only overrides allowed — the
-Brief's — translates mechanical Brief constraints into Check parameters, and
+Brief's — translates mechanical Brief constraints into Check parameters,
+snapshots the Brief's ``donor:`` lines so the availability Check is
+contention-aware (committed-by-default is pinned as ``donors: []``), and
 emits the declarative Suite the fixed runner
 (skills/suite-runner/scripts/check_deck.py) interprets. Data, never code.
 
@@ -132,7 +134,7 @@ def parse_brief(text):
     Grammar problems are the validator's job (validate_brief.py) — run it
     first; here any line the validator would reject — non-canonical, or a
     repeat of a non-repeatable key — is unusable input, its rule mirrored."""
-    fields, constraints = {}, []
+    fields, constraints, donors = {}, [], []
     for number, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
             continue
@@ -142,8 +144,8 @@ def parse_brief(text):
                      f"{line!r} — validate the Brief first (validate_brief.py)")
         if key == "constraint":
             constraints.append(value.strip())
-        elif key in REPEATABLE_KEYS:
-            fields.setdefault(key, value.strip())
+        elif key == "donor":
+            donors.append(value.strip())
         elif key in fields:
             unusable(f"brief line {number} repeats {key!r} — only "
                      f"{', '.join(REPEATABLE_KEYS)} are repeatable; validate the "
@@ -152,7 +154,7 @@ def parse_brief(text):
             fields[key] = value.strip()
     if "format" not in fields:
         unusable("the Brief has no format: line — validate the Brief first")
-    return fields, constraints
+    return fields, constraints, donors
 
 def load_oracle(path):
     """Card facts by name: oracle.jsonl (first line metadata, ADR 0007) or a
@@ -274,7 +276,7 @@ HEAD_COMMENT = """\
 """
 
 def emit(suite_name, display_format, generated, brief_line, profile, comments,
-         quotas, cons, cons_comments, must, checks):
+         quotas, cons, cons_comments, must, donors, checks):
     out = [HEAD_COMMENT]
     out.append(f"suite: {suite_name}")
     out.append(f"format: {display_format}")
@@ -302,6 +304,17 @@ def emit(suite_name, display_format, generated, brief_line, profile, comments,
         for comment in cons_comments.get(key, []):
             out.append(f"  {comment}")
         out.append(f"  {key}: {fmt(value)}")
+    # Donor Decks: copies in existing Decks are committed by default; only
+    # these lines free them for the availability Check ('all' frees every
+    # Deck). Always present, so committed-by-default is pinned data too.
+    if donors:
+        out.append("  donors:")
+        for name in donors:
+            out.append(f"    # brief: donor: {name}")
+            out.append(f"    - {name}")
+    else:
+        out.append("  # default: no donor lines — every deck-row copy stays committed")
+        out.append("  donors: []")
     if must:
         out.append("  must_include:")
         for comment, name in must:
@@ -310,7 +323,7 @@ def emit(suite_name, display_format, generated, brief_line, profile, comments,
     out.append("")
     out.append("roles:")
     out.append("  # Card -> Role tags: judgment recorded once per card as Build tags it.")
-    out.append("  # Empty at Build start — no card is picked yet.")
+    out.append("  # Empty until the Build picks and tags its first card.")
     out.append("")
     out.append("checks:")
     out.append("  # The Suite: every id resolves to a fixed predicate in the runner (or a")
@@ -323,7 +336,7 @@ def emit(suite_name, display_format, generated, brief_line, profile, comments,
 # ---------- assembly ----------
 
 def build_suite(brief_text, profile_text, oracle, run_date):
-    fields, constraint_lines = parse_brief(brief_text)
+    fields, constraint_lines, donors = parse_brief(brief_text)
     prof = parse_yaml(profile_text)
     for section in ("format", "profile", "checks"):
         if section not in prof:
@@ -422,7 +435,7 @@ def build_suite(brief_text, profile_text, oracle, run_date):
     brief_line = " — ".join(
         [fields["format"]] + ([centerpiece] if centerpiece else []) + [f"power {power}"])
     return emit(suite_name, display, run_date, brief_line, profile, comments,
-                quotas, cons, cons_comments, must, checks)
+                quotas, cons, cons_comments, must, donors, checks)
 
 # ---------- main ----------
 

@@ -152,6 +152,41 @@
         "Run live over a Check-flawed fixture Deck, the review routes Check territory to the Suite: the planted legality and availability flaws surface through the runner's report, never as fresh Review Findings.",
         "Run live, fuzzy Brief asks are judged on the Brief axis, and a Check target the Brief outgrew is flagged as mis-set for the Brief without recounting the Suite."
       ]
+    },
+    {
+      "id": 6,
+      "prompt": "Finish the Build for the Tatyova Brief in a Collection home, as an Upgrade of the owner's existing ManaBox deck (its own rows freed by donor: lines): add and swap owned cards until the Suite is green through the fixed runner — the clean deck's Tolarian Terror breaks the Brief's 'nothing above 6 mana' cap and must be swapped for an owned, free, on-Brief card — record Role judgment in the Suite's roles: section, and ship the ManaBox-importable Deck Block to the deck library.",
+      "expected_output": "The committed built fixtures, byte for byte: the Upgrade Brief; the built Suite (the generated Suite plus recorded Role tags, no target bent); the shipped Deck Block — nonbasics pinned to owned printings, basics lumped last, inline category comments, the unowned wishlist entry on the Maybeboard, the Fan Content footer — and the all-green report from the unmodified runner, with contention-aware availability honoring the donor: lines.",
+      "files": [
+        "skills/build/SKILL.md",
+        "commands/build.md",
+        "skills/build/scripts/availability.py",
+        "skills/build/scripts/ship_deck.py",
+        "skills/build/scripts/generate_suite.py",
+        "skills/build/profiles/commander.yaml",
+        "skills/suite-runner/scripts/check_deck.py",
+        "evals/fixtures/briefs/commander-tatyova-landfall.txt",
+        "evals/fixtures/build/tatyova-upgrade.brief.txt",
+        "evals/fixtures/build/tatyova-landfall.built.suite.yaml",
+        "evals/fixtures/build/tatyova-built-deck.txt",
+        "evals/fixtures/build/tatyova-built-report.txt",
+        "evals/fixtures/scryfall/oracle.jsonl",
+        "evals/fixtures/collections/real-collection.csv"
+      ],
+      "expectations": [
+        "The Upgrade Brief validates against the Export and frees the target Deck's own rows through donor: lines — an Upgrade is an ordinary Build re-run with the existing Deck's copies freed.",
+        "Every card in the built Deck is drawn from the Collection fixture: contention-aware availability over the Export's deck rows reports every copy free under the Brief's donor: lines.",
+        "Declined contention is reported in the honest sentence shape: a want whose copies are all committed to a Deck the Brief never freed comes back as 'wanted <card>; all copies committed to <deck>'.",
+        "Format legality holds and the Suite re-runs through the fixed runner: the built Suite over the shipped Deck Block reproduces the committed all-green report byte-identical, exit green.",
+        "Build never bends targets: the built Suite differs from a fresh generation over the Upgrade Brief only by the Role tags recorded in its roles: section.",
+        "The shipped Deck Block parses as ManaBox-importable text: '// <name>' first, reserved Board headers only for Boards in use, every nonbasic outside the Maybeboard pinned to an owned printing with set code and collector number, inline '// category' comments, basics lumped per name last in their Board after a blank line, and the short-form Fan Content footer line exactly once.",
+        "The Maybeboard is the wishlist Board: its entries carry no printing pin and may be unowned — the one place the collection-only rule bends.",
+        "Blocks survive the round-trip: re-shipping the shipped Deck Block reproduces it byte-identical, and the committed report reads the full 100 cards from it.",
+        "A Deck card missing from the Oracle degrades per-card to flagged model knowledge, never a hard failure: the runner still reports with the uncovered card named in the report head.",
+        "The pasted-Export case holds as parser-tolerance smoke: the same availability verdicts from a paste-shaped Export — BOM, CRLF line endings, extra quoting — as from the file on disk.",
+        "The build skill's text pins the back half: the loop through the fixed runner with targets never bent, contention consulted and declined contention reported out loud, the honest red ending with the human's three options, the shipped Deck Block with the Fan Content footer and the informational-only legality caveat, the Maybeboard wishlist, and closing instructions naming the Blocks Review needs.",
+        "The built Deck honors the Brief's intent: lands matter, steady card draw, nothing above 6 mana, no infinite combos, at bracket-2 power."
+      ]
     }
   ]
 }

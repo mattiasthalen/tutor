@@ -44,6 +44,7 @@ CASE_NAMES = {
     3: "brief-smoke",
     4: "build-smoke",
     5: "review-smoke",
+    6: "build-deep",
 }
 
 
@@ -1406,6 +1407,337 @@ def check_review_flaw_registration(ctx):
     )
 
 
+# --- Build-to-green predicates (issue #54) ----------------------------------
+# The build-deep case grades the finished Build offline: the committed built
+# fixtures (Upgrade Brief, built Suite, shipped Deck Block, all-green report)
+# through the deterministic seams — the availability and ship CLIs, the
+# generator, and the unmodified fixed runner. Card choice and Role tagging
+# are the judgment those fixtures record; the graders never re-judge.
+
+BUILD_AVAILABILITY = REPO_ROOT / "skills" / "build" / "scripts" / "availability.py"
+BUILD_SHIP = REPO_ROOT / "skills" / "build" / "scripts" / "ship_deck.py"
+
+FAN_CONTENT_FOOTER = (
+    "// tutor is unofficial Fan Content permitted under the Fan Content "
+    "Policy. Not approved/endorsed by Wizards. Portions of the materials "
+    "used are property of Wizards of the Coast. ©Wizards of the Coast LLC."
+)
+
+UPGRADE_BRIEF_REL = "build/tatyova-upgrade.brief.txt"
+BUILT_SUITE_REL = "build/tatyova-landfall.built.suite.yaml"
+BUILT_DECK_REL = "build/tatyova-built-deck.txt"
+BUILT_REPORT_REL = "build/tatyova-built-report.txt"
+
+
+def check_upgrade_brief(ctx):
+    brief = ctx.path(UPGRADE_BRIEF_REL)
+    result = run_brief_script(BRIEF_VALIDATOR, brief,
+                              "--collection", ctx.path("collections/real-collection.csv"))
+    problems = []
+    if result.returncode != 0:
+        problems.append(f"the Upgrade Brief is invalid: {result.stdout.strip()[:200]}")
+    text = brief.read_text(encoding="utf-8")
+    if "donor: Tatyova, Benthic Druid" not in text:
+        problems.append("the Upgrade never frees the target Deck's own rows via donor:")
+    return not problems, "; ".join(problems) or (
+        "valid against the Export; donor: lines free Baylen and the rebuilt "
+        "Tatyova deck's own rows"
+    )
+
+
+def check_built_deck_collection_only(ctx):
+    result = run_build_cli(
+        BUILD_AVAILABILITY,
+        "--collection", ctx.path("collections/real-collection.csv"),
+        "--brief", ctx.path(UPGRADE_BRIEF_REL),
+        "--deck", ctx.path(BUILT_DECK_REL),
+    )
+    if result.returncode != 0:
+        declined = [l for l in result.stdout.splitlines() if l.startswith("wanted ")]
+        return False, f"copies not free under the donor: lines: {declined[:5]}"
+    return True, (
+        f"{len(result.stdout.splitlines())} names checked at count — every copy "
+        "free under the Brief's donor: lines"
+    )
+
+
+def check_contention_declined_sentence(ctx):
+    # Exsanguinate: every owned copy committed to the Zoraline deck; the
+    # original fixture Brief frees only Baylen — the want must be declined.
+    result = run_build_cli(
+        BUILD_AVAILABILITY,
+        "--collection", ctx.path("collections/real-collection.csv"),
+        "--brief", ctx.path("briefs/commander-tatyova-landfall.txt"),
+        "--want", "Exsanguinate",
+    )
+    wanted = "wanted Exsanguinate; all copies committed to Zoraline, Cosmos Caller"
+    problems = []
+    if result.returncode != 1:
+        problems.append(f"exit {result.returncode}, a declined want is 1")
+    if wanted not in result.stdout:
+        problems.append(f"sentence missing; stdout: {result.stdout.strip()[:200]}")
+    return not problems, "; ".join(problems) or wanted
+
+
+def run_built_suite(ctx, oracle=None):
+    return run_build_cli(
+        SUITE_RUNNER,
+        "--suite", ctx.path(BUILT_SUITE_REL),
+        "--deck", ctx.path(BUILT_DECK_REL),
+        "--oracle", oracle or ctx.path("scryfall/oracle.jsonl"),
+        "--collection", ctx.path("collections/real-collection.csv"),
+        "--date", BUILD_REFERENCE_DATE,
+    )
+
+
+def check_built_report_green(ctx):
+    result = run_built_suite(ctx)
+    problems = []
+    if result.returncode != 0:
+        problems.append(f"exit {result.returncode}, green is 0")
+    committed = ctx.path(BUILT_REPORT_REL).read_text(encoding="utf-8")
+    if result.stdout != committed:
+        problems.append("report differs from the committed all-green reference")
+    if "verdict: green — 0 red /" not in result.stdout:
+        problems.append("no all-green verdict line")
+    return not problems, "; ".join(problems) or (
+        "the built Suite re-ran byte-identical to the committed all-green "
+        "report through the unmodified runner"
+    )
+
+
+def check_built_suite_roles_only(ctx):
+    regenerated = run_build_cli(
+        BUILD_GENERATOR,
+        "--brief", ctx.path(UPGRADE_BRIEF_REL),
+        "--profile", COMMANDER_PROFILE,
+        "--oracle", ctx.path("scryfall/oracle.jsonl"),
+        "--date", BUILD_REFERENCE_DATE,
+    )
+    if regenerated.returncode != 0:
+        return False, f"generate_suite.py failed: {regenerated.stderr.strip()[:200]}"
+    without_roles, role_lines, in_roles = [], [], False
+    for line in ctx.path(BUILT_SUITE_REL).read_text(encoding="utf-8").splitlines(True):
+        if not line.startswith(" ") and line.strip():
+            in_roles = line.rstrip() == "roles:"
+        if in_roles and line.startswith("  ") and not line.lstrip().startswith("#"):
+            role_lines.append(line)
+            continue
+        without_roles.append(line)
+    problems = []
+    if "".join(without_roles) != regenerated.stdout:
+        problems.append("the built Suite differs beyond its roles: section — a target was bent")
+    if not role_lines:
+        problems.append("no Role judgment recorded in the roles: section")
+    tags = {t.strip() for l in role_lines for t in l.split("[", 1)[1].rstrip("]\n").split(",")}
+    if not tags <= ROLE_VOCABULARY:
+        problems.append(f"Role tags outside the vocabulary: {sorted(tags - ROLE_VOCABULARY)}")
+    return not problems, "; ".join(problems) or (
+        f"built Suite = generated Suite + {len(role_lines)} recorded Role "
+        "lines, every tag in the global vocabulary"
+    )
+
+
+def parse_shipped_block(text):
+    """The shipped Deck Block, read board by board: returns (title, boards)
+    where boards maps a Board name to its raw card lines in order."""
+    lines = text.splitlines()
+    title = lines[0] if lines else ""
+    boards, board = {}, None
+    for line in lines[1:]:
+        if line in ("// Commander", "// Mainboard", "// Sideboard", "// Maybeboard"):
+            board = line[3:]
+            boards[board] = []
+        elif line.strip() and not line.startswith("//") and board:
+            boards[board].append(line)
+    return title, boards
+
+
+def check_shipped_block_shape(ctx):
+    text = ctx.path(BUILT_DECK_REL).read_text(encoding="utf-8")
+    owned_pins = {}
+    for row in ctx.read_manabox_csv("collections/real-collection.csv"):
+        owned_pins.setdefault(row["Name"], set()).add(
+            (row["Set code"], row["Collector number"]))
+    title, boards = parse_shipped_block(text)
+    problems = []
+    if title != "// Tatyova Landfall":
+        problems.append(f"first line is {title!r}, not the '// <name>' title")
+    if set(boards) != {"Commander", "Mainboard", "Maybeboard"}:
+        problems.append(f"Boards in use are {sorted(boards)}")
+    pinned = re.compile(r"^(\d+) (.+?) \(([A-Z0-9]{2,5})\) (\S+)((?: // .*)?)$")
+    categories = 0
+    for board in ("Commander", "Mainboard"):
+        basic_seen = False
+        for line in boards.get(board, []):
+            bare = re.match(r"^(\d+) ([^(]+?)$", line)
+            if bare and bare.group(2).strip() in BASIC_NAMES:
+                basic_seen = True
+                continue
+            if basic_seen:
+                problems.append(f"{board}: card line after the lumped basics: {line!r}")
+                break
+            m = pinned.match(line)
+            if not m:
+                problems.append(f"{board}: nonbasic without a printing pin: {line!r}")
+                break
+            if (m.group(3), m.group(4)) not in owned_pins.get(m.group(2), set()):
+                problems.append(f"{board}: pin not an owned printing: {line!r}")
+                break
+            if m.group(5):
+                categories += 1
+    mainboard = boards.get("Mainboard", [])
+    basics = [l for l in mainboard if re.match(r"^\d+ [^(]+$", l)
+              and l.split(" ", 1)[1] in BASIC_NAMES]
+    if not basics:
+        problems.append("no lumped basics in the Mainboard")
+    else:
+        if mainboard[-len(basics):] != basics:
+            problems.append("basics are not last in the Mainboard")
+        if f"\n\n{basics[0]}\n" not in text:
+            problems.append("no blank line before the lumped basics")
+    if not categories:
+        problems.append("no inline // category comment survived the ship")
+    if text.count(FAN_CONTENT_FOOTER) != 1:
+        problems.append(f"Fan Content footer appears {text.count(FAN_CONTENT_FOOTER)} times")
+    return not problems, "; ".join(problems) or (
+        f"title, three Boards, every nonbasic pinned to an owned printing, "
+        f"{categories} category comments, basics lumped last after a blank "
+        "line, one Fan Content footer"
+    )
+
+
+def check_maybeboard_wishlist(ctx):
+    text = ctx.path(BUILT_DECK_REL).read_text(encoding="utf-8")
+    owned = {row["Name"] for row in ctx.read_manabox_csv("collections/real-collection.csv")}
+    _, boards = parse_shipped_block(text)
+    entries = boards.get("Maybeboard", [])
+    problems = []
+    if not entries:
+        problems.append("no Maybeboard entries to grade")
+    unowned = 0
+    for line in entries:
+        if re.search(r"\([A-Z0-9]{2,5}\) \S+", line.split(" // ")[0]):
+            problems.append(f"a Maybeboard entry carries a printing pin: {line!r}")
+        name = re.match(r"^\d+ (.+?)(?: // .*)?$", line).group(1)
+        if name not in owned:
+            unowned += 1
+    if not unowned:
+        problems.append("no unowned Maybeboard entry — the wishlist bend goes ungraded")
+    return not problems, "; ".join(problems) or (
+        f"{len(entries)} unpinned wishlist entries, {unowned} unowned — the "
+        "one place the collection-only rule bends"
+    )
+
+
+def check_block_round_trip(ctx):
+    committed = ctx.path(BUILT_DECK_REL).read_text(encoding="utf-8")
+    reshipped = run_build_cli(
+        BUILD_SHIP,
+        "--deck", ctx.path(BUILT_DECK_REL),
+        "--collection", ctx.path("collections/real-collection.csv"),
+        "--oracle", ctx.path("scryfall/oracle.jsonl"),
+    )
+    problems = []
+    if reshipped.returncode != 0:
+        problems.append(f"re-ship failed: {reshipped.stderr.strip()[:200]}")
+    elif reshipped.stdout != committed:
+        problems.append("re-shipping the shipped Block changed its bytes")
+    report = ctx.path(BUILT_REPORT_REL).read_text(encoding="utf-8")
+    if "green legality.size — 100 cards, need exactly 100" not in report:
+        problems.append("the committed report does not read 100 cards from the Block")
+    return not problems, "; ".join(problems) or (
+        "re-ship byte-identical; the runner reads the full 100 cards"
+    )
+
+
+def check_oracle_gap_degrades(ctx):
+    import tempfile
+
+    lines = [l for l in ctx.path("scryfall/oracle.jsonl").read_text(
+        encoding="utf-8").splitlines() if '"Divination"' not in l]
+    problems = []
+    with tempfile.TemporaryDirectory() as tmp:
+        gapped = pathlib.Path(tmp) / "oracle.jsonl"
+        gapped.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        result = run_built_suite(ctx, oracle=gapped)
+    if result.returncode not in (0, 1):
+        problems.append(f"exit {result.returncode} — a gap must never be the "
+                        "wrong-Suite refusal or a crash")
+    if "unknown to Oracle: Divination" not in result.stdout:
+        problems.append("the uncovered card is not named in the report head")
+    if "verdict:" not in result.stdout:
+        problems.append("no verdict line — the report was withheld")
+    return not problems, "; ".join(problems) or (
+        "Divination dropped from the Oracle: the runner still reports, names "
+        "it in the head, and verdicts the rest"
+    )
+
+
+def check_pasted_export_tolerance(ctx):
+    import tempfile
+
+    raw = ctx.path("collections/real-collection.csv").read_bytes()
+    text = raw.decode("utf-8-sig")
+    rows = [r for r in csv.reader(io.StringIO(text))]
+    pasted_io = io.StringIO()
+    csv.writer(pasted_io, quoting=csv.QUOTE_ALL, lineterminator="\r\n").writerows(rows)
+    pasted_bytes = b"\xef\xbb\xbf" + pasted_io.getvalue().encode("utf-8")
+
+    def availability_over(export_path):
+        return run_build_cli(
+            BUILD_AVAILABILITY,
+            "--collection", export_path,
+            "--brief", ctx.path(UPGRADE_BRIEF_REL),
+            "--deck", ctx.path(BUILT_DECK_REL),
+        )
+
+    problems = []
+    with tempfile.TemporaryDirectory() as tmp:
+        pasted = pathlib.Path(tmp) / "pasted-collection.csv"
+        pasted.write_bytes(pasted_bytes)
+        from_paste = availability_over(pasted)
+    from_file = availability_over(ctx.path("collections/real-collection.csv"))
+    if from_paste.returncode != from_file.returncode:
+        problems.append(f"exit codes diverge: paste {from_paste.returncode}, "
+                        f"file {from_file.returncode}")
+    if from_paste.stdout != from_file.stdout:
+        problems.append("verdicts diverge between the paste-shaped and file Exports")
+    return not problems, "; ".join(problems) or (
+        "BOM + CRLF + full quoting: byte-identical availability verdicts"
+    )
+
+
+def check_build_loop_content(_ctx):
+    """Tripwire, not proof: the loop is prompt-ware judged by its artifacts;
+    these needles keep the back half's load-bearing sentences from silently
+    vanishing."""
+    text = BUILD_SKILL_PATH.read_text(encoding="utf-8")
+    needles = [
+        "until the Suite is green",
+        "never bend",
+        "availability.py",
+        "declined contention",
+        "loosen the Brief",
+        "accept the Deck as-is",
+        "acquire cards",
+        "ship_deck.py",
+        "Fan Content",
+        "informational only",
+        "Maybeboard",
+        "uncovered cards",
+        "/tutor:review",
+        "Deck Block and the Brief",
+    ]
+    missing = [n for n in needles if n not in text]
+    return not missing, (
+        f"skills/build/SKILL.md lacks {missing}" if missing
+        else "the loop, contention, the three red-ending options, the shipped "
+             "Block with footer and caveat, the wishlist, and the Review "
+             "handoff are pinned"
+    )
+
+
 # --- Registry: exact expectation text -> fixed predicate --------------------
 # Keys are pinned verbatim to the strings in evals.json; editing a wording
 # means editing both, deliberately. Unregistered expectations are soft.
@@ -1493,6 +1825,28 @@ EXPECTATION_CHECKS = {
         check_review_skill_content,
     "The Review-flawed fixture Deck plants only Review-territory flaws: every Check green on the clean fixture Deck stays green on it through the unmodified runner, and each registered standards/brief flaw names owned cards present in the Deck.":
         check_review_flaw_registration,
+    "The Upgrade Brief validates against the Export and frees the target Deck's own rows through donor: lines — an Upgrade is an ordinary Build re-run with the existing Deck's copies freed.":
+        check_upgrade_brief,
+    "Every card in the built Deck is drawn from the Collection fixture: contention-aware availability over the Export's deck rows reports every copy free under the Brief's donor: lines.":
+        check_built_deck_collection_only,
+    "Declined contention is reported in the honest sentence shape: a want whose copies are all committed to a Deck the Brief never freed comes back as 'wanted <card>; all copies committed to <deck>'.":
+        check_contention_declined_sentence,
+    "Format legality holds and the Suite re-runs through the fixed runner: the built Suite over the shipped Deck Block reproduces the committed all-green report byte-identical, exit green.":
+        check_built_report_green,
+    "Build never bends targets: the built Suite differs from a fresh generation over the Upgrade Brief only by the Role tags recorded in its roles: section.":
+        check_built_suite_roles_only,
+    "The shipped Deck Block parses as ManaBox-importable text: '// <name>' first, reserved Board headers only for Boards in use, every nonbasic outside the Maybeboard pinned to an owned printing with set code and collector number, inline '// category' comments, basics lumped per name last in their Board after a blank line, and the short-form Fan Content footer line exactly once.":
+        check_shipped_block_shape,
+    "The Maybeboard is the wishlist Board: its entries carry no printing pin and may be unowned — the one place the collection-only rule bends.":
+        check_maybeboard_wishlist,
+    "Blocks survive the round-trip: re-shipping the shipped Deck Block reproduces it byte-identical, and the committed report reads the full 100 cards from it.":
+        check_block_round_trip,
+    "A Deck card missing from the Oracle degrades per-card to flagged model knowledge, never a hard failure: the runner still reports with the uncovered card named in the report head.":
+        check_oracle_gap_degrades,
+    "The pasted-Export case holds as parser-tolerance smoke: the same availability verdicts from a paste-shaped Export — BOM, CRLF line endings, extra quoting — as from the file on disk.":
+        check_pasted_export_tolerance,
+    "The build skill's text pins the back half: the loop through the fixed runner with targets never bent, contention consulted and declined contention reported out loud, the honest red ending with the human's three options, the shipped Deck Block with the Fan Content footer and the informational-only legality caveat, the Maybeboard wishlist, and closing instructions naming the Blocks Review needs.":
+        check_build_loop_content,
 }
 
 
