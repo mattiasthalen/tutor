@@ -71,3 +71,7 @@ _Avoid_: category, archetype
 **Oracle**:
 The Scryfall-derived card-facts file covering the Collection — the data Checks run against. Companion artifact to the Export.
 _Avoid_: dump, card database
+
+**Eval**:
+A test of tutor itself — does a skill produce a sound Brief, Deck, or Review. Evals judge tutor; Checks judge Decks.
+_Avoid_: test (unqualified), Check (that judges a Deck, not tutor)
