@@ -56,6 +56,8 @@ Judge format deckbuilding craft against the Smell baseline v1 — each Smell a j
 - **curve lie** — the curve's numbers pass while the early plays do nothing that matters; the real game starts turns late.
 - **interaction mismatch** — answers that cannot touch what this Format's tables actually present: wrong shapes, wrong speeds.
 
+Mass land denial, chained extra turns, and early two-card combos are judged in this axis too — table-experience calls over the Deck as played, weighed beside the Smells without joining the locked baseline's names. (Power fit is the Brief axis's, judged against the declared `power:`.)
+
 Then read the `review_standards:` section of the Format profile (`${CLAUDE_PLUGIN_ROOT}/skills/build/profiles/<format-slug>.yaml`, the same file Build generated the Suite from) and apply each entry on top of the baseline; an entry sharing a baseline Smell's name replaces that Smell's reading — the profile overrides the baseline. With no profile for the Format, or none carrying `review_standards:`, the baseline stands alone.
 
 ### Brief charter
