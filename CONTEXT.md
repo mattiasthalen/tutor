@@ -28,6 +28,14 @@ _Avoid_: audit, critique
 A re-pasteable fenced code block that carries a Brief, Deck, or Review between conversations. The interchange artifact of the paste round-trip.
 _Avoid_: snippet, export (that's ManaBox's)
 
+**Board**:
+A named section of a Deck Block — Commander, Mainboard, Sideboard, or Maybeboard. A Deck Block carries only the Boards its Format uses.
+_Avoid_: zone (an MTG term), section
+
+**Maybeboard**:
+The wishlist Board: upgrade candidates worth a future slot, possibly outside the Collection. Not part of the playable Deck — the one place unowned cards may appear.
+_Avoid_: wishlist, sideboard
+
 **Upgrade**:
 Rebuilding an existing Deck against a fresh Export and a possibly revised Brief.
 _Avoid_: respec, refresh
@@ -75,3 +83,7 @@ _Avoid_: dump, card database
 **Eval**:
 A test of tutor itself — does a skill produce a sound Brief, Deck, or Review. Evals judge tutor; Checks judge Decks.
 _Avoid_: test (unqualified), Check (that judges a Deck, not tutor)
+
+**Table**:
+A set of Decks built together for one sitting — an Archenemy villain versus three heroes, or three Commander decks for a pod — matched in power and drawn from one Collection.
+_Avoid_: pod (one specific table shape), match
