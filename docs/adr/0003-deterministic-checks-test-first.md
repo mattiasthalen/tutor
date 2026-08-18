@@ -1,10 +1,10 @@
 ---
-status: accepted
+status: accepted, amended by ADR-0005
 ---
 
 # A deck test is a Suite of deterministic Checks, generated test-first
 
-"TDD for decks" means: at Build start the Suite — every Check the Deck must pass — is generated from the Brief and the Format profile, before any card is picked; an empty Deck starts all red, and Build adds and swaps cards until the Suite is green. A Check is a deterministic, binary pass/fail predicate over the Deck and its card facts (the Oracle) — anything requiring judgment or taste belongs to Review, never to a Check.
+"TDD for decks" means: at Build start the Suite — every Check the Deck must pass — is generated from the Brief and the Format profile, before any card is picked; ~~an empty Deck starts all red~~ (amended by ADR-0005: every size, mana-base, curve, and quota Check starts red, while constraint-shaped Checks — singleton, legality lists, availability — may pass vacuously on an empty Deck), and Build adds and swaps cards until the Suite is green. A Check is a deterministic, binary pass/fail predicate over the Deck and its card facts (the Oracle) — anything requiring judgment or taste belongs to Review, never to a Check.
 
 ## Considered options
 
