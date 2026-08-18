@@ -149,7 +149,11 @@ def load_commitments(path):
     Type `deck` belong to the Deck named by Binder Name. Returns
     {card name: {deck name: copies}}; empty wherever the Export carries no
     binder columns. Read only when the Suite's constraints carry a donors
-    entry — the contention-aware availability Check (issue #54)."""
+    entry — the contention-aware availability Check (issue #54).
+
+    A deliberate mirror of the build skill's availability.py `load_pool`
+    committed-side reading — kept in lockstep by hand, never imported,
+    because skill assets stay self-contained. Edit the two together."""
     committed = {}
     with open(path, newline="") as f:
         for row in csv.DictReader(f):

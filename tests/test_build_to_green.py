@@ -13,7 +13,8 @@ The seams under test are the ticket's acceptance criteria, never internals:
 - the generator CLI snapshotting ``donor:`` lines into the Suite,
 - the ship CLI (``skills/build/scripts/ship_deck.py``) — the
   ManaBox-importable Deck Block: nonbasics pinned to the exact owned printing
-  (the fancier owned print when several), basics lumped per name last in each
+  (the fancier print among the copies the ``donor:`` lines leave free —
+  committed copies are never pinned), basics lumped per name last in each
   Board after a blank line, inline ``// category`` comments, the Maybeboard
   wishlist unpinned and possibly unowned, the Fan Content footer, and a
   byte-identical round-trip, and
@@ -155,6 +156,40 @@ class WholeDeckAvailability(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Quick Study: 2 free of 2 owned", result.stdout)
         self.assertIn("Forest:", result.stdout)
+
+
+class BareLinesResolveThroughOwnedNames(unittest.TestCase):
+    """A bare line holding " // " is ambiguous — a multi-faced name or an
+    inline comment. The Collection settles it, the same order as the ship's:
+    the whole remainder wins when the Collection owns it, otherwise the
+    comment reading applies — never a glued 'name // comment' want."""
+
+    COLLECTION = (
+        "Name,Quantity\n"
+        "Llanowar Elves,1\n"
+        "Emeritus of Abundance // Regrowth,1\n"
+    )
+    DECK = (
+        "// Probe\n"
+        "// Mainboard\n"
+        "1 Llanowar Elves // ramp\n"
+        "1 Emeritus of Abundance // Regrowth\n"
+    )
+
+    def test_comment_reading_and_owned_whole_name_both_resolve(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = pathlib.Path(tmp)
+            deck = home / "deck.txt"
+            deck.write_text(self.DECK, encoding="utf-8")
+            collection = home / "collection.csv"
+            collection.write_text(self.COLLECTION, encoding="utf-8")
+            result = run_cli(AVAILABILITY, "--collection", collection,
+                             "--deck", deck)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Llanowar Elves: 1 free of 1 owned", result.stdout)
+        self.assertIn("Emeritus of Abundance // Regrowth: 1 free of 1 owned",
+                      result.stdout)
+        self.assertNotIn("Llanowar Elves // ramp", result.stdout)
 
 
 GENERATOR = REPO / "skills" / "build" / "scripts" / "generate_suite.py"
@@ -334,13 +369,17 @@ SHIP_EXPORT = (
 )
 
 
-def run_ship(deck_text, collection_text=SHIP_EXPORT, *extra):
+def run_ship(deck_text, collection_text=SHIP_EXPORT, *extra, brief_text=None):
     with tempfile.TemporaryDirectory() as tmp:
         home = pathlib.Path(tmp)
         deck = home / "deck.txt"
         deck.write_text(deck_text, encoding="utf-8")
         collection = home / "collection.csv"
         collection.write_text(collection_text, encoding="utf-8")
+        if brief_text is not None:
+            brief = home / "brief.txt"
+            brief.write_text(brief_text, encoding="utf-8")
+            extra = (*extra, "--brief", brief)
         return run_cli(SHIP, "--deck", deck, "--collection", collection, *extra)
 
 
@@ -412,6 +451,93 @@ class FancierOwnedPrintWins(unittest.TestCase):
             "2 Lightning Bolt (CLB) 187\n2 Lightning Bolt (M11) 146\n",
             result.stdout,
         )
+
+
+class PinsDrawOnlyFromFreeCopies(unittest.TestCase):
+    """AC: the Deck draws only from the Collection with deck-row copies
+    committed by default — the pin too. A fancier printing whose only
+    physical copies sit in a committed, non-donor Deck never wins over a
+    plainer free copy; a `donor:` line (or --donor) frees a Deck's copies
+    for pinning; the spill across printings stays inside the free counts;
+    and a want the free copies cannot cover refuses in the pinned
+    declined-contention wording."""
+
+    EXPORT = (
+        "Binder Name,Binder Type,Name,Set code,Collector number,Foil,Quantity\n"
+        "Commander Pile,deck,Sol Ring,C21,263,foil,1\n"
+        "Box,binder,Sol Ring,CMM,464,normal,1\n"
+        "Zoraline,deck,Lightning Bolt,CLB,187,foil,2\n"
+        "Box,binder,Lightning Bolt,CLB,187,foil,1\n"
+        "Box,binder,Lightning Bolt,M11,146,normal,3\n"
+    )
+    DECK = "// Probe\n// Mainboard\n1 Sol Ring\n"
+
+    def test_committed_foil_never_outranks_the_free_normal(self):
+        # The review's reproduction: the only foil Sol Ring sits in a
+        # committed Deck; the free copy is a plain CMM normal.
+        result = run_ship(self.DECK, self.EXPORT)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("1 Sol Ring (CMM) 464\n", result.stdout)
+        self.assertNotIn("(C21)", result.stdout)
+
+    def test_donor_frees_the_fancier_copy_for_pinning(self):
+        result = run_ship(self.DECK, self.EXPORT, "--donor", "Commander Pile")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("1 Sol Ring (C21) 263\n", result.stdout)
+
+    def test_brief_donor_lines_free_for_pinning(self):
+        brief = "format: commander\ndonor: Commander Pile\n"
+        result = run_ship(self.DECK, self.EXPORT, brief_text=brief)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("1 Sol Ring (C21) 263\n", result.stdout)
+
+    def test_spill_stays_inside_the_free_copies(self):
+        # 3 wanted: one CLB foil is free (the other two sit in Zoraline), so
+        # the fancier print takes one and the free normals cover the rest.
+        deck = "// Probe\n// Mainboard\n3 Lightning Bolt\n"
+        result = run_ship(deck, self.EXPORT)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "1 Lightning Bolt (CLB) 187\n2 Lightning Bolt (M11) 146\n",
+            result.stdout,
+        )
+
+    def test_too_few_free_copies_refuses_in_the_pinned_wording(self):
+        deck = "// Probe\n// Mainboard\n2 Sol Ring\n"
+        result = run_ship(deck, self.EXPORT)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(
+            "wanted Sol Ring (need 2); 1 free, 1 committed to Commander Pile",
+            result.stderr,
+        )
+
+    def test_all_copies_committed_refuses_in_the_pinned_wording(self):
+        export = (
+            "Binder Name,Binder Type,Name,Set code,Collector number,Foil,Quantity\n"
+            "Commander Pile,deck,Sol Ring,C21,263,foil,1\n"
+        )
+        result = run_ship(self.DECK, export)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(
+            "wanted Sol Ring; all copies committed to Commander Pile",
+            result.stderr,
+        )
+
+
+class PinShapedCommentTailIsSwallowed(unittest.TestCase):
+    """Documented behaviour, judged acceptable on review: all three parsers
+    match the pin on the raw line first, so a trailing comment whose own tail
+    is pin-shaped re-anchors the pin on that tail and the rest of the line is
+    swallowed into the name — the ship then refuses on the swallowed reading
+    rather than guessing at a split."""
+
+    def test_swallowed_name_refuses_naming_the_whole_reading(self):
+        deck = ("// Probe\n// Mainboard\n"
+                "1 Sol Ring (C21) 263 // swap for (SOS) 145\n")
+        result = run_ship(deck)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Sol Ring (C21) 263 // swap for", result.stderr)
+        self.assertIn("not in the Collection", result.stderr)
 
 
 class MaybeboardIsTheWishlist(unittest.TestCase):
@@ -548,8 +674,11 @@ class BuildEndsGreenThroughTheFixedRunner(unittest.TestCase):
                            "the built Suite records Role judgment per card")
 
     def test_the_shipped_deck_block_round_trips_byte_identical(self):
+        # The re-ship reads the same Brief: the pin draws only from the
+        # copies its donor: lines leave free.
         result = run_cli(SHIP, "--deck", BUILT_DECK,
-                         "--collection", REAL_EXPORT, "--oracle", ORACLE)
+                         "--collection", REAL_EXPORT,
+                         "--brief", UPGRADE_BRIEF, "--oracle", ORACLE)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout, BUILT_DECK.read_text(encoding="utf-8"))
 

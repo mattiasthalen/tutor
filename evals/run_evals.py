@@ -1417,6 +1417,8 @@ def check_review_flaw_registration(ctx):
 BUILD_AVAILABILITY = REPO_ROOT / "skills" / "build" / "scripts" / "availability.py"
 BUILD_SHIP = REPO_ROOT / "skills" / "build" / "scripts" / "ship_deck.py"
 
+# A deliberate copy of ship_deck.py's FOOTER (kept in lockstep by hand, never
+# imported — the harness grades the skill from outside). Edit them together.
 FAN_CONTENT_FOOTER = (
     "// tutor is unofficial Fan Content permitted under the Fan Content "
     "Policy. Not approved/endorsed by Wizards. Portions of the materials "
@@ -1565,7 +1567,6 @@ def check_shipped_block_shape(ctx):
         problems.append(f"first line is {title!r}, not the '// <name>' title")
     if set(boards) != {"Commander", "Mainboard", "Maybeboard"}:
         problems.append(f"Boards in use are {sorted(boards)}")
-    pinned = re.compile(r"^(\d+) (.+?) \(([A-Z0-9]{2,5})\) (\S+)((?: // .*)?)$")
     categories = 0
     for board in ("Commander", "Mainboard"):
         basic_seen = False
@@ -1577,7 +1578,9 @@ def check_shipped_block_shape(ctx):
             if basic_seen:
                 problems.append(f"{board}: card line after the lumped basics: {line!r}")
                 break
-            m = pinned.match(line)
+            # PINNED_LINE is the harness's one pinned-line grammar — group 5
+            # is the inline comment (None when absent).
+            m = PINNED_LINE.match(line)
             if not m:
                 problems.append(f"{board}: nonbasic without a printing pin: {line!r}")
                 break
@@ -1636,6 +1639,7 @@ def check_block_round_trip(ctx):
         BUILD_SHIP,
         "--deck", ctx.path(BUILT_DECK_REL),
         "--collection", ctx.path("collections/real-collection.csv"),
+        "--brief", ctx.path(UPGRADE_BRIEF_REL),
         "--oracle", ctx.path("scryfall/oracle.jsonl"),
     )
     problems = []

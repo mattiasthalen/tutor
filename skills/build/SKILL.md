@@ -70,10 +70,11 @@ A Format is a first-class data profile: `${CLAUDE_PLUGIN_ROOT}/skills/build/prof
    ```sh
    python3 "${CLAUDE_PLUGIN_ROOT}/skills/build/scripts/ship_deck.py" \
      --deck decks/<slug>.deck.txt --collection collection.csv \
+     --brief decks/<slug>.brief.txt \
      --oracle oracle.jsonl --out decks/<slug>.deck.txt
    ```
 
-   The shipped Block is text ManaBox actually imports: first line `// <name>`; Board headers only for the Boards the Format uses; every nonbasic pinned to the exact owned printing — set code and collector number, the fancier owned print chosen when several exist; optional inline `// category` comments; basics lumped per name, last in each Board after a blank line; and the short-form Fan Content footer line. Unowned upgrade ideas worth a future slot go on the Maybeboard — the wishlist Board, unpinned and allowed to be unowned, the one place the collection-only rule bends.
+   The shipped Block is text ManaBox actually imports: first line `// <name>`; Board headers only for the Boards the Format uses; every nonbasic pinned to the exact owned printing — set code and collector number, the fancier owned print chosen when several exist, drawn only from the copies the Brief's `donor:` lines leave free (the same contention arithmetic the loop consulted — a copy committed to another Deck is never pinned, so physical assembly never raids one); optional inline `// category` comments; basics lumped per name, last in each Board after a blank line; and the short-form Fan Content footer line. Unowned upgrade ideas worth a future slot go on the Maybeboard — the wishlist Board, unpinned and allowed to be unowned, the one place the collection-only rule bends.
 2. Re-run the runner once over the shipped file and write the final report to `decks/<slug>.suite-report.txt` — the Suite re-runs through the fixed runner, byte-stable, so the report proves the shipped bytes.
 
 ## Close: green or honestly red

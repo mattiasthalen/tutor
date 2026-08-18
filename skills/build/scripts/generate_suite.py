@@ -130,11 +130,12 @@ def unusable(message):
     sys.exit(2)
 
 def parse_brief(text):
-    """A Brief Block: flat key: value lines, constraint/donor repeatable.
+    """A Brief Block: flat key: value lines, the REPEATABLE_KEYS repeatable.
     Grammar problems are the validator's job (validate_brief.py) — run it
     first; here any line the validator would reject — non-canonical, or a
     repeat of a non-repeatable key — is unusable input, its rule mirrored."""
-    fields, constraints, donors = {}, [], []
+    fields = {}
+    repeats = {key: [] for key in REPEATABLE_KEYS}
     for number, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
             continue
@@ -142,10 +143,8 @@ def parse_brief(text):
         if not sep or key not in BRIEF_KEYS or not value.strip():
             unusable(f"brief line {number} is not a canonical 'key: value' line: "
                      f"{line!r} — validate the Brief first (validate_brief.py)")
-        if key == "constraint":
-            constraints.append(value.strip())
-        elif key == "donor":
-            donors.append(value.strip())
+        if key in REPEATABLE_KEYS:
+            repeats[key].append(value.strip())
         elif key in fields:
             unusable(f"brief line {number} repeats {key!r} — only "
                      f"{', '.join(REPEATABLE_KEYS)} are repeatable; validate the "
@@ -154,7 +153,7 @@ def parse_brief(text):
             fields[key] = value.strip()
     if "format" not in fields:
         unusable("the Brief has no format: line — validate the Brief first")
-    return fields, constraints, donors
+    return fields, repeats["constraint"], repeats["donor"]
 
 def load_oracle(path):
     """Card facts by name: oracle.jsonl (first line metadata, ADR 0007) or a
