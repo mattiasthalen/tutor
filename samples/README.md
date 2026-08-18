@@ -1,5 +1,9 @@
 # ManaBox export samples
 
+`collection.csv` and `deck.txt` are real exports from ManaBox 4.1.12, captured 2026-08-18 on
+a Swedish-locale device (`SEK` prices). Verified facts and remaining open points are recorded
+on [issue #16](https://github.com/mattiasthalen/tutor/issues/16).
+
 Landing spot for real ManaBox export files, captured for
 [issue #16](https://github.com/mattiasthalen/tutor/issues/16) — verifying the parser
 assumptions the ManaBox research (issue #3) left at low confidence.
