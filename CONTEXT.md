@@ -25,7 +25,7 @@ The judgment of a finished Deck against the review axes.
 _Avoid_: audit, critique
 
 **Block**:
-A re-pasteable fenced code block that carries a Brief, Deck, or Review between conversations. The interchange artifact of the paste round-trip.
+A re-pasteable fenced code block that carries a Brief, Deck, Review, or Suite (with its red/green Report) between conversations. The interchange artifact of the paste round-trip.
 _Avoid_: snippet, export (that's ManaBox's)
 
 **Board**:
@@ -69,7 +69,7 @@ A deterministic pass/fail predicate over a Deck — same Deck, same card facts, 
 _Avoid_: test (tutor's own software tests), rule
 
 **Suite**:
-The full set of Checks generated for one Deck from its Brief and Format at Build start — all red on an empty Deck, all green when the Build is done.
+The full set of Checks generated for one Deck from its Brief and Format at Build start — red on an empty Deck (bar vacuously passing constraint Checks), all green when the Build is done. Declarative data interpreted by a fixed runner, never code (ADR-0005).
 _Avoid_: checklist, test suite
 
 **Role**:
