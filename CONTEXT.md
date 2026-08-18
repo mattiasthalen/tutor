@@ -21,8 +21,20 @@ A playable list of cards drawn from the Collection that satisfies a Brief.
 _Avoid_: list, build
 
 **Review**:
-The judgment of a finished Deck against the review axes.
+The judgment of a finished Deck along the two review axes: Standards (format deckbuilding craft) and Brief (fidelity to the Brief's intent).
 _Avoid_: audit, critique
+
+**Finding**:
+A single Review judgment on one axis: a severity — blocker (would not play as-is) or note (works, but a better line exists) — the card or cards it names, the problem, and at most one suggestion: an owned swap or an unowned Maybeboard candidate. Findings judge; they never edit the Deck.
+_Avoid_: issue (a tracker term), comment
+
+**Verdict**:
+The computed outcome of a Review: ship, playable, or rebuild. Each axis gets one — any blocker means rebuild, only notes mean playable, clean means ship — and the overall Verdict is the worst axis. Verdicts are arithmetic over Findings, never fresh judgment.
+_Avoid_: score, grade
+
+**Smell**:
+A named heuristic on the Standards axis — the format-agnostic baseline every Review applies unless the Format profile overrides it. A Smell is always a judgment call, never a hard violation; deterministic failures belong to Checks.
+_Avoid_: violation, error
 
 **Block**:
 A re-pasteable fenced code block that carries a Brief, Deck, or Review between conversations. The interchange artifact of the paste round-trip.
