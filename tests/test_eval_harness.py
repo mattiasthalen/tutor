@@ -119,6 +119,35 @@ class FixtureBriefsAndDecksExist(unittest.TestCase):
         self.assertIn("availability", classes, "no availability flaw planted")
 
 
+class PinnedScryfallSnapshotAndOracle(unittest.TestCase):
+    """Acceptance: a pinned Scryfall snapshot covers only the fixture cards,
+    committed beside them and refreshed deliberately; a fixture Oracle derived
+    from it ships alongside."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.result = run_harness("--case", "harness-smoke")
+        grading_path = REPO / "evals" / "results" / "harness-smoke" / "grading.json"
+        cls.grading = json.loads(grading_path.read_text(encoding="utf-8"))
+        cls.scryfall = REPO / "evals" / "fixtures" / "scryfall"
+
+    def graded_green(self, needle):
+        matches = [e for e in self.grading["expectations"] if needle in e["text"]]
+        self.assertTrue(matches, f"no smoke expectation mentions {needle!r}")
+        for e in matches:
+            self.assertTrue(e["passed"], f"expectation red: {e['text']}\n{e['evidence']}")
+
+    def test_snapshot_coverage_graded_green(self):
+        self.graded_green("snapshot")
+        first = (self.scryfall / "snapshot.jsonl").open(encoding="utf-8").readline()
+        meta = json.loads(first)["snapshot_meta"]
+        self.assertIn("captured_at", meta)
+        self.assertGreater(meta["card_count"], 400)
+
+    def test_refresh_script_is_the_only_network_path(self):
+        self.assertTrue((self.scryfall / "refresh_snapshot.py").is_file())
+
+
 class HarnessCanGoRed(unittest.TestCase):
     """Green is only trustworthy if a broken fixture actually turns the run red."""
 

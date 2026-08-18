@@ -253,6 +253,79 @@ def check_planted_flaws(ctx):
     )
 
 
+def load_snapshot(ctx):
+    """Read snapshot.jsonl; return (meta, cards)."""
+    lines = ctx.path("scryfall/snapshot.jsonl").read_text(encoding="utf-8").splitlines()
+    meta = json.loads(lines[0])["snapshot_meta"]
+    return meta, [json.loads(line) for line in lines[1:]]
+
+
+def fixture_card_references(ctx):
+    """Every card reference the fixtures make, independently re-gathered.
+
+    Returns (ids, pins, names): Scryfall IDs from Collection CSVs,
+    (set, collector number) pins and bare names from Deck texts.
+    """
+    ids, pins, names = set(), set(), set()
+    for csv_path in sorted(ctx.path("collections").glob("*.csv")):
+        for row in ctx.read_manabox_csv(f"collections/{csv_path.name}"):
+            if row.get("Scryfall ID", "").strip():
+                ids.add(row["Scryfall ID"].strip())
+    deck_paths = sorted(ctx.path("decks").glob("*.txt"))
+    deck_paths.append(ctx.path("collections/real-deck.txt"))
+    for deck_path in deck_paths:
+        for line in deck_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip() or line.startswith("//"):
+                continue
+            m = PINNED_LINE.match(line)
+            if m:
+                pins.add((m.group(3).lower(), m.group(4)))
+                continue
+            m = BARE_LINE.match(line)
+            if m:
+                names.add(m.group(2))
+    return ids, pins, names
+
+
+def check_snapshot_coverage(ctx):
+    meta, cards = load_snapshot(ctx)
+    problems = []
+    if "captured_at" not in meta:
+        problems.append("snapshot metadata line lacks captured_at")
+    if meta.get("card_count") != len(cards):
+        problems.append(
+            f"metadata card_count {meta.get('card_count')} != {len(cards)} card lines"
+        )
+    snap_ids = {c["id"] for c in cards}
+    snap_pins = {(c["set"], c["collector_number"]) for c in cards}
+    snap_names = {c["name"] for c in cards}
+    snap_names |= {f["name"] for c in cards for f in c.get("card_faces", [])}
+
+    ids, pins, names = fixture_card_references(ctx)
+    missing = [i for i in sorted(ids) if i not in snap_ids]
+    missing += [f"{s.upper()} {n}" for s, n in sorted(pins) if (s, n) not in snap_pins]
+    missing += [n for n in sorted(names) if n not in snap_names]
+    if missing:
+        problems.append(f"fixture cards absent from the snapshot: {missing[:10]}")
+
+    orphans = [
+        f"{c['name']} ({c['set'].upper()}) {c['collector_number']}"
+        for c in cards
+        if c["id"] not in ids
+        and (c["set"], c["collector_number"]) not in pins
+        and c["name"] not in names
+        and not any(f["name"] in names for f in c.get("card_faces", []))
+    ]
+    if orphans:
+        problems.append(f"snapshot cards no fixture references: {orphans[:10]}")
+
+    return not problems, "; ".join(problems) or (
+        f"{len(cards)} snapshot cards captured {meta['captured_at']} cover "
+        f"{len(ids)} Collection printings, {len(pins)} Deck pins, "
+        f"{len(names)} bare names — exactly"
+    )
+
+
 # --- Registry: exact expectation text -> fixed predicate --------------------
 # Keys are pinned verbatim to the strings in evals.json; editing a wording
 # means editing both, deliberately. Unregistered expectations are soft.
@@ -274,6 +347,8 @@ EXPECTATION_CHECKS = {
         check_fixture_decks,
     "Some fixture Decks carry planted flaws for Review evals, each registered in the manifest and naming cards present in its Deck (or absent from every Collection for availability flaws).":
         check_planted_flaws,
+    "The pinned Scryfall snapshot covers every card the fixtures reference and nothing else, with its capture metadata on line one.":
+        check_snapshot_coverage,
 }
 
 
