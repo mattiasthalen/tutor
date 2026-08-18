@@ -19,6 +19,8 @@ import sys
 import tempfile
 import unittest
 
+from test_eval_harness import SmokeGradingMixin, run_harness
+
 REPO = pathlib.Path(__file__).resolve().parents[1]
 VALIDATOR = REPO / "skills" / "brief" / "scripts" / "validate_brief.py"
 FRESHNESS = REPO / "skills" / "brief" / "scripts" / "freshness.py"
@@ -104,6 +106,21 @@ class BriefValidatorRejectsInvalidBriefs(unittest.TestCase):
 
     def test_power_without_leading_number_is_rejected(self):
         self.assert_invalid("format: commander\npower: battlecruiser\n", "1-5")
+
+    def test_power_with_kitchen20_format_is_rejected(self):
+        # Kitchen 20 carries no Power — the Format pins it (spec #46).
+        self.assert_invalid(
+            "format: kitchen 20\npower: 4\n", "Kitchen 20 carries no Power"
+        )
+
+    def test_power_with_capitalized_kitchen20_format_is_rejected(self):
+        self.assert_invalid(
+            "format: Kitchen 20\npower: 2\n", "Kitchen 20 carries no Power"
+        )
+
+    def test_kitchen20_without_power_is_valid(self):
+        result = self.validate_text("format: kitchen 20\nidentity: white\n")
+        self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_duplicate_scalar_key_is_rejected(self):
         self.assert_invalid(
@@ -254,27 +271,15 @@ class FreshnessDegradesGracefullyWithoutOracle(unittest.TestCase):
         self.assertNotIn("Traceback", result.stderr)
 
 
-def run_harness(*args):
-    return subprocess.run(
-        [sys.executable, str(REPO / "evals" / "run_evals.py"), *[str(a) for a in args]],
-        cwd=str(REPO),
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-
-
-class BriefSmokeEvalCase(unittest.TestCase):
+class BriefSmokeEvalCase(SmokeGradingMixin, unittest.TestCase):
     """Acceptance: a smoke eval covers the brief skill — mechanical
-    invariants graded offline, the two behavioral halves (fires from natural
-    language; scripted answers yield a valid Brief Block) reported soft for
-    the dev-time skill-creator workflow. Conversation quality stays
-    human-judged and is no expectation at all."""
+    invariants graded offline, the behavioral expectations (fires from
+    natural language; scripted answers yield a valid Brief Block; a pasted
+    Export beats the file) reported soft for the dev-time skill-creator
+    workflow. Conversation quality stays human-judged and is no expectation
+    at all."""
 
-    @classmethod
-    def setUpClass(cls):
-        cls.result = run_harness("--case", "brief-smoke")
-        cls.grading_path = REPO / "evals" / "results" / "brief-smoke" / "grading.json"
+    CASE = "brief-smoke"
 
     def test_brief_smoke_runs_green(self):
         self.assertEqual(
@@ -282,31 +287,19 @@ class BriefSmokeEvalCase(unittest.TestCase):
             f"brief-smoke not green.\nstdout:\n{self.result.stdout}"
             f"\nstderr:\n{self.result.stderr}",
         )
-        self.assertTrue(self.grading_path.is_file(), "no grading.json for brief-smoke")
-        import json
+        self.assertEqual(self.grading["summary"]["failed"], 0)
+        self.assertGreater(self.grading["summary"]["passed"], 0)
 
-        grading = json.loads(self.grading_path.read_text(encoding="utf-8"))
-        self.assertEqual(grading["summary"]["failed"], 0)
-        self.assertGreater(grading["summary"]["passed"], 0)
-
-    def test_behavioral_halves_are_soft_expectations(self):
-        import json
-
-        grading = json.loads(self.grading_path.read_text(encoding="utf-8"))
-        soft = " ".join(grading["soft_expectations"])
+    def test_behavioral_expectations_stay_soft(self):
+        soft = " ".join(self.grading["soft_expectations"])
         self.assertIn("natural language", soft)
         self.assertIn("scripted answers", soft)
+        # The deferred pasted-Export behaviour (always accepted, beats the
+        # file on conflict, diff reported) is at least tracked as soft.
+        self.assertIn("pasted Export", soft)
 
     def test_command_wraps_skill_with_version_in_lockstep(self):
-        import json
-
-        command = (REPO / "commands" / "brief.md").read_text(encoding="utf-8")
-        self.assertIn("skills/brief/SKILL.md", command)
-        skill = (REPO / "skills" / "brief" / "SKILL.md").read_text(encoding="utf-8")
-        pinned = json.loads(
-            (REPO / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
-        )["version"]
-        self.assertIn(f"version: {pinned}", skill)
+        self.graded_green("thin wrapper")
 
 
 class BriefSmokeCanGoRed(unittest.TestCase):

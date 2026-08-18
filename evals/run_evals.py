@@ -165,10 +165,33 @@ def check_per_format_pools(ctx):
     return not problems, "; ".join(problems or evidence)
 
 
-BRIEF_KEYS = {
-    "name", "format", "centerpiece", "identity", "play variant", "power",
-    "constraint", "donor", "notes",
-}
+# The nine canonical Brief keys (spec #52), in Brief Block order — the one
+# copy in this file. skills/brief/scripts/validate_brief.py carries its own
+# on purpose: skill assets stay self-contained across the skill/eval boundary.
+BRIEF_CANONICAL_KEYS = (
+    "name", "format", "centerpiece", "identity", "play variant",
+    "power", "constraint", "donor", "notes",
+)
+
+
+def parse_brief_lines(text):
+    """The harness's own flat ``key: value`` read of a fixture Brief —
+    deliberately independent of the skill's validator, never imported from it.
+
+    Returns (entries, problems): (key, value) pairs in file order, plus one
+    problem per line that is not a canonical non-empty ``key: value`` line.
+    """
+    entries, problems = [], []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        key, sep, value = line.partition(":")
+        if not sep or not value.strip() or key not in BRIEF_CANONICAL_KEYS:
+            problems.append(f"not a canonical 'key: value' line: {line!r}")
+            continue
+        entries.append((key, value.strip()))
+    return entries, problems
+
 
 BOARD_HEADERS = {"// Commander", "// Mainboard", "// Sideboard", "// Maybeboard"}
 BASIC_NAMES = {"Plains", "Island", "Swamp", "Forest", "Mountain", "Wastes"}
@@ -189,16 +212,9 @@ def check_fixture_briefs(ctx):
         return False, f"only {len(briefs)} fixture Briefs under briefs/"
     problems = []
     for brief in briefs:
-        keys = []
-        for line in brief.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            key, sep, value = line.partition(":")
-            if not sep or not value.strip() or key not in BRIEF_KEYS:
-                problems.append(f"{brief.name}: not a canonical 'key: value' line: {line!r}")
-                continue
-            keys.append(key)
-        if "format" not in keys:
+        entries, brief_problems = parse_brief_lines(brief.read_text(encoding="utf-8"))
+        problems += [f"{brief.name}: {p}" for p in brief_problems]
+        if "format" not in {key for key, _ in entries}:
             problems.append(f"{brief.name}: missing the required format: line")
     return not problems, "; ".join(problems) or f"{len(briefs)} Briefs, all flat key: value with format:"
 
@@ -644,11 +660,13 @@ def check_oracle_skill_fallback(ctx):
     return not problems, "; ".join(problems) or (
         f"an unknown Scryfall ID resolved through Name + Set code: {card['name']}"
 # --- Brief skill predicates (issue #52) -------------------------------------
-# The brief conversation is prompt-ware: its behavioral halves (fires from
-# natural language; scripted answers yield the Brief) stay soft, dev-time
-# judged. These predicates grade the deterministic shadows — wiring, the
-# validator and freshness scripts (wrapped, never re-implemented), and the
-# fixture Briefs those scripts must accept.
+# The brief conversation is prompt-ware: its behavioral expectations (fires
+# from natural language; scripted answers yield the Brief; a pasted Export
+# beats the file) stay soft, dev-time judged. These predicates grade the
+# deterministic shadows: wiring, the validator and freshness scripts (wrapped,
+# never re-implemented), and the fixture Briefs those scripts must accept —
+# where a predicate needs Brief fields rather than a verdict, it reads them
+# through parse_brief_lines, the harness's own fixture read.
 
 BRIEF_SKILL_PATH = REPO_ROOT / "skills" / "brief" / "SKILL.md"
 BRIEF_COMMAND_PATH = REPO_ROOT / "commands" / "brief.md"
@@ -656,10 +674,6 @@ BRIEF_VALIDATOR = REPO_ROOT / "skills" / "brief" / "scripts" / "validate_brief.p
 BRIEF_FRESHNESS = REPO_ROOT / "skills" / "brief" / "scripts" / "freshness.py"
 PLUGIN_MANIFEST = REPO_ROOT / ".claude-plugin" / "plugin.json"
 
-BRIEF_CANONICAL_KEYS = (
-    "name", "format", "centerpiece", "identity", "play variant",
-    "power", "constraint", "donor", "notes",
-)
 PLAY_VARIANTS = {"archenemy", "two-headed giant", "jumpstart 40"}
 
 
@@ -778,11 +792,10 @@ def check_donor_grammar(ctx):
 def check_play_variants_never_formats(ctx):
     problems, archenemy_fixture = [], None
     for brief in sorted(ctx.path("briefs").glob("*.txt")):
+        entries, _ = parse_brief_lines(brief.read_text(encoding="utf-8"))
         fields = {}
-        for line in brief.read_text(encoding="utf-8").splitlines():
-            key, sep, value = line.partition(":")
-            if sep and value.strip():
-                fields.setdefault(key, value.strip())
+        for key, value in entries:
+            fields.setdefault(key, value)
         if fields.get("format", "").lower() in PLAY_VARIANTS:
             problems.append(
                 f"{brief.name}: format: {fields['format']!r} is a play variant, never a Format"
