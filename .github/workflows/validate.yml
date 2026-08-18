@@ -1,0 +1,31 @@
+name: Validate plugin
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Plugin validator (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      # Validates the marketplace manifest and, through its single entry,
+      # the plugin manifest at the repo root.
+      - name: Validate marketplace and plugin manifests (strict)
+        run: claude plugin validate . --strict
+
+      - name: Validate skills (strict)
+        run: claude plugin validate skills --strict
+
+      - name: Validate commands (strict)
+        run: claude plugin validate commands --strict

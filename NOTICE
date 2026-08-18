@@ -1,0 +1,38 @@
+NOTICE
+======
+
+tutor — a Magic: The Gathering deckbuilder plugin for Claude Code.
+https://github.com/mattiasthalen/tutor
+
+Wizards of the Coast — Fan Content Policy
+-----------------------------------------
+
+tutor is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
+
+Magic: The Gathering, the card names, card text, mana symbols, and all related
+marks and materials referenced by this project are property of Wizards of the
+Coast LLC. tutor is not produced by, endorsed by, or affiliated with Wizards
+of the Coast.
+
+Fan Content Policy: https://company.wizards.com/en/legal/fancontentpolicy
+
+Scryfall
+--------
+
+tutor retrieves card data through the Scryfall API. tutor is not produced by,
+endorsed by, supported by, or affiliated with Scryfall.
+
+Card legality and any price information surfaced from Scryfall data are
+informational only: they are snapshots, not guarantees, and must not be
+treated as real-time or authoritative. If card images are ever displayed, the
+artist and copyright credit accompanying each image must be preserved.
+
+Scryfall API documentation: https://scryfall.com/docs/api
+
+Free and unpaywalled
+--------------------
+
+tutor is available free of charge, to everyone, in its entirety. No part of it
+may be sold, licensed for a fee, or placed behind a paywall. Staying free and
+unpaywalled is a condition of both the Wizards of the Coast Fan Content Policy
+and the Scryfall API guidelines.
