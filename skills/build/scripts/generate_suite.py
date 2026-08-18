@@ -47,7 +47,8 @@ from datetime import date
 # ---------- tiny YAML-subset parser ----------
 # A deliberate copy of the runner's (check_deck.py) parser: 2-space indents,
 # dicts, lists, inline [a, b]. Kept in lockstep by hand, not imported — skill
-# assets stay self-contained. What this emits, that parser must re-read.
+# assets stay self-contained. What this emits, that parser must re-read; a
+# test pins the two sources byte-identical (test_build_skill.py).
 
 def parse_scalar(s):
     s = s.strip()
@@ -78,7 +79,7 @@ def parse_yaml(text):
             items = []
             while i < len(lines) and indent_of(lines[i]) == ind and lines[i].lstrip().startswith("- "):
                 head = lines[i].lstrip()[2:]
-                if ":" in head:
+                if ":" in head:  # list of dicts: "- key: value" + deeper keys
                     item = {}
                     k, _, v = head.partition(":")
                     item[k.strip()] = parse_scalar(v)
@@ -114,6 +115,9 @@ BRIEF_KEYS = (
     "name", "format", "centerpiece", "identity", "play variant",
     "power", "constraint", "donor", "notes",
 )
+# Mirrors validate_brief.py's REPEATABLE_KEYS — the one authority on the
+# Brief grammar; every other key may appear at most once.
+REPEATABLE_KEYS = ("constraint", "donor")
 
 def refuse(message):
     print(message, file=sys.stderr)
@@ -126,7 +130,8 @@ def unusable(message):
 def parse_brief(text):
     """A Brief Block: flat key: value lines, constraint/donor repeatable.
     Grammar problems are the validator's job (validate_brief.py) — run it
-    first; here a non-canonical line is unusable input."""
+    first; here any line the validator would reject — non-canonical, or a
+    repeat of a non-repeatable key — is unusable input, its rule mirrored."""
     fields, constraints = {}, []
     for number, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
@@ -137,7 +142,13 @@ def parse_brief(text):
                      f"{line!r} — validate the Brief first (validate_brief.py)")
         if key == "constraint":
             constraints.append(value.strip())
-        elif key not in fields:
+        elif key in REPEATABLE_KEYS:
+            fields.setdefault(key, value.strip())
+        elif key in fields:
+            unusable(f"brief line {number} repeats {key!r} — only "
+                     f"{', '.join(REPEATABLE_KEYS)} are repeatable; validate the "
+                     "Brief first (validate_brief.py)")
+        else:
             fields[key] = value.strip()
     if "format" not in fields:
         unusable("the Brief has no format: line — validate the Brief first")
@@ -196,11 +207,12 @@ GRAMMAR_HINT = (
 
 def apply_constraints(lines, profile, quotas, comments):
     """Translate every Brief constraint: line into Check parameters. Returns
-    (constraints dict, per-key comment lines). An untranslatable line refuses
-    the whole run: a target is never silently bent, a constraint never
-    silently dropped."""
+    (constraints dict, per-key comment lines, must-include pairs — each a
+    (provenance comment, card name)). An untranslatable line refuses the
+    whole run: a target is never silently bent, a constraint never silently
+    dropped."""
     cons, cons_comments = {}, {}
-    must, must_comments = [], []
+    must = []
     for line in lines:
         m = CMC_MAX.match(line)
         if m:
@@ -224,8 +236,7 @@ def apply_constraints(lines, profile, quotas, comments):
             continue
         m = MUST_INCLUDE.match(line)
         if m:
-            must.append(m.group(1).strip())
-            must_comments.append(f"# brief: constraint: {line}")
+            must.append((f"# brief: constraint: {line}", m.group(1).strip()))
             continue
         m = QUOTA.match(line)
         if m:
@@ -241,7 +252,7 @@ def apply_constraints(lines, profile, quotas, comments):
             continue
         refuse(f"constraint not translatable to a fixed Check: {line!r} — {GRAMMAR_HINT}. "
                "Re-phrase the Brief; a Suite never silently drops a constraint.")
-    return cons, cons_comments, must, must_comments
+    return cons, cons_comments, must
 
 # ---------- emission ----------
 
@@ -263,7 +274,7 @@ HEAD_COMMENT = """\
 """
 
 def emit(suite_name, display_format, generated, brief_line, profile, comments,
-         quotas, cons, cons_comments, must, must_comments, checks):
+         quotas, cons, cons_comments, must, checks):
     out = [HEAD_COMMENT]
     out.append(f"suite: {suite_name}")
     out.append(f"format: {display_format}")
@@ -293,7 +304,7 @@ def emit(suite_name, display_format, generated, brief_line, profile, comments,
         out.append(f"  {key}: {fmt(value)}")
     if must:
         out.append("  must_include:")
-        for name, comment in zip(must, must_comments):
+        for comment, name in must:
             out.append(f"    {comment}")
             out.append(f"    - {name}")
     out.append("")
@@ -357,7 +368,10 @@ def build_suite(brief_text, profile_text, oracle, run_date):
                "generate one (/tutor:oracle) or add an identity: line to the Brief")
 
     # Power reads through the profile: Commander reads it as the official
-    # Bracket, whose Game Changers limit becomes a snapshotted target.
+    # Bracket, whose Game Changers limit becomes a snapshotted target. An
+    # unstated Power defaults to 2 — labelled "default:", never worn as the
+    # Brief's voice.
+    power_voice = "brief" if "power" in fields else "default"
     power_value = fields.get("power", "2").strip()
     m = re.match(r"^([1-5])(?:[\s,].*)?$", power_value)
     if not m:
@@ -367,7 +381,7 @@ def build_suite(brief_text, profile_text, oracle, run_date):
     gc_table = prof.get("game_changers_max_by_power", {})
     gc_limit = gc_table.get(str(power), "unlimited") if gc_table else None
 
-    cons, cons_comments, must, must_comments = apply_constraints(
+    cons, cons_comments, must = apply_constraints(
         constraint_lines, profile, quotas, comments)
 
     if identity is not None:
@@ -377,10 +391,9 @@ def build_suite(brief_text, profile_text, oracle, run_date):
     if gc_limit is not None and gc_limit != "unlimited":
         profile["game_changers_max"] = gc_limit
         comments["game_changers_max"] = [
-            f"# brief: power: {power} — bracket allows {gc_limit} Game Changers"]
-    if centerpiece and centerpiece not in must:
-        must.insert(0, centerpiece)
-        must_comments.insert(0, f"# brief: centerpiece: {centerpiece}")
+            f"# {power_voice}: power: {power} — bracket allows {gc_limit} Game Changers"]
+    if centerpiece and centerpiece not in (name for _, name in must):
+        must.insert(0, (f"# brief: centerpiece: {centerpiece}", centerpiece))
 
     # The check list: profile templates in order, minus checks whose parameter
     # is unset, with quota and Brief Checks inserted before the consistency
@@ -409,7 +422,7 @@ def build_suite(brief_text, profile_text, oracle, run_date):
     brief_line = " — ".join(
         [fields["format"]] + ([centerpiece] if centerpiece else []) + [f"power {power}"])
     return emit(suite_name, display, run_date, brief_line, profile, comments,
-                quotas, cons, cons_comments, must, must_comments, checks)
+                quotas, cons, cons_comments, must, checks)
 
 # ---------- main ----------
 

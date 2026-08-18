@@ -27,6 +27,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 RUNNER = REPO / "skills" / "suite-runner" / "scripts" / "check_deck.py"
 GENERATOR = REPO / "skills" / "build" / "scripts" / "generate_suite.py"
 PROFILE = REPO / "skills" / "build" / "profiles" / "commander.yaml"
+VALIDATOR = REPO / "skills" / "brief" / "scripts" / "validate_brief.py"
 FIXTURES = REPO / "evals" / "fixtures"
 
 # The date pinned into the committed build fixtures, so reports and Suites
@@ -319,6 +320,104 @@ class UnknownCheckIdRefusedCleanly(unittest.TestCase):
         self.assertEqual(result.stdout, "")
 
 
+class ColorCoverageReadsTheCollectionHomeOracle(unittest.TestCase):
+    """manabase.color_coverage works on the Collection-home Oracle vocabulary
+    (issue #48), which carries no produced_mana field: production derives
+    deterministically from the type line's basic land types and the oracle
+    text's Add abilities — green when the mana base covers every spell color,
+    red naming the gap, so the Check means something on a real Deck, not only
+    the empty one. Where a produced_mana field exists (the suite-shape
+    prototype's vocabulary), the field stays the authority."""
+
+    SUITE = mini_suite(["manabase.color_coverage"])
+    ORACLE = oracle_json(
+        oracle_card("Llanowar Elves", colors=["G"], color_identity=["G"]),
+        oracle_card("Counterspell", colors=["U"], color_identity=["U"]),
+        oracle_card("Lightning Bolt", colors=["R"], color_identity=["R"]),
+        oracle_card("Forest", mana_value=0.0, type_line="Basic Land — Forest",
+                    oracle_text="({T}: Add {G}.)"),
+        oracle_card("Temple of Mystery", mana_value=0.0, type_line="Land",
+                    oracle_text="This land enters tapped.\n{T}: Add {G} or {U}."),
+        oracle_card("Uncharted Haven", mana_value=0.0, type_line="Land",
+                    oracle_text="This land enters tapped. As it enters, choose "
+                                "a color.\n{T}: Add one mana of the chosen color."),
+    )
+
+    def run_deck(self, deck_lines, oracle_text=None):
+        home = TempHome()
+        self.addCleanup(home.cleanup)
+        deck = "// Probe\n// Mainboard\n" + "".join(f"1 {n}\n" for n in deck_lines)
+        return run_mini(home, self.SUITE, deck_text=deck,
+                        oracle_text=oracle_text or self.ORACLE)
+
+    def test_basic_and_dual_lands_cover_the_spells(self):
+        result = self.run_deck(["Llanowar Elves", "Counterspell",
+                                "Forest", "Temple of Mystery"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "green manabase.color_coverage — spells need ['G', 'U'], "
+            "lands make ['G', 'U']",
+            result.stdout,
+        )
+
+    def test_uncovered_color_is_red_with_the_gap_shown(self):
+        result = self.run_deck(["Llanowar Elves", "Lightning Bolt", "Forest"])
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn(
+            "red   manabase.color_coverage — spells need ['G', 'R'], "
+            "lands make ['G']",
+            result.stdout,
+        )
+
+    def test_chosen_color_land_covers_any_spell_color(self):
+        result = self.run_deck(["Lightning Bolt", "Uncharted Haven"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("green manabase.color_coverage", result.stdout)
+
+    def test_a_produced_mana_field_still_wins_over_derivation(self):
+        oracle = oracle_json(
+            oracle_card("Llanowar Elves", colors=["G"], color_identity=["G"]),
+            oracle_card("Barren Glade", mana_value=0.0, type_line="Land",
+                        oracle_text="({T}: Add {G}.)", produced_mana=[]),
+        )
+        result = self.run_deck(["Llanowar Elves", "Barren Glade"],
+                               oracle_text=oracle)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn(
+            "red   manabase.color_coverage — spells need ['G'], "
+            "lands make nothing",
+            result.stdout,
+        )
+
+
+class YamlParserStaysInLockstepWithTheRunner(unittest.TestCase):
+    """generate_suite.py carries a deliberate copy of the runner's tiny
+    YAML-subset parser — not imported, so skill assets stay self-contained —
+    'kept in lockstep by hand'. This pin makes the lockstep mechanical: the
+    two parser sources must stay byte-identical, so what the generator emits
+    the runner re-reads with the same grammar."""
+
+    @staticmethod
+    def load(path, name):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_parser_sources_are_identical(self):
+        import inspect
+        runner = self.load(RUNNER, "lockstep_runner")
+        generator = self.load(GENERATOR, "lockstep_generator")
+        for name in ("parse_scalar", "parse_yaml"):
+            with self.subTest(function=name):
+                self.assertEqual(
+                    inspect.getsource(getattr(generator, name)),
+                    inspect.getsource(getattr(runner, name)),
+                    f"{name} drifted between generate_suite.py and check_deck.py",
+                )
+
+
 def generate(*args):
     return run_cli(GENERATOR, *args)
 
@@ -346,6 +445,38 @@ class GeneratedSuiteReproducesTheFixture(unittest.TestCase):
         expected = (FIXTURES / "build" / "tatyova-landfall.suite.yaml").read_text(
             encoding="utf-8")
         self.assertEqual(result.stdout, expected)
+
+
+class ProfileConsistencyTargetIsSatisfiable(unittest.TestCase):
+    """The Commander profile is self-consistent: its consistency threshold is
+    satisfiable at lands_min. Exact hypergeometric P(>=2 lands in a 7-card
+    hand) rises with the land count, so the land window's floor is the
+    binding case — if the floor cleared less than p_2plus_lands_in_7_min,
+    legality.land_count and consistency.opening_lands could never both be
+    green and every Suite from this profile would be unwinnable."""
+
+    def profile_value(self, text, key):
+        import re
+        m = re.search(rf"^  {key}: (\S+)$", text, re.MULTILINE)
+        self.assertIsNotNone(m, f"the profile has no {key}: target")
+        return float(m.group(1))
+
+    def test_threshold_holds_at_the_land_window_floor(self):
+        import math
+        text = PROFILE.read_text(encoding="utf-8")
+        deck_size = int(self.profile_value(text, "deck_size"))
+        lands_min = int(self.profile_value(text, "lands_min"))
+        threshold = self.profile_value(text, "p_2plus_lands_in_7_min")
+        p_at_floor = 1 - sum(
+            math.comb(lands_min, k) * math.comb(deck_size - lands_min, 7 - k)
+            for k in (0, 1)
+        ) / math.comb(deck_size, 7)
+        self.assertGreaterEqual(
+            p_at_floor, threshold,
+            f"P(>=2 lands in 7 | N={deck_size}, K={lands_min}) = {p_at_floor:.4f} "
+            f"< threshold {threshold}: no legal land count could green the "
+            "consistency Check",
+        )
 
 
 TATYOVA_BRIEF = (FIXTURES / "briefs" / "commander-tatyova-landfall.txt")
@@ -413,6 +544,44 @@ class BriefOverridesNeverSilentlyBent(unittest.TestCase):
         self.assertIn("centerpiece", result.stderr)
 
 
+class BriefGrammarMatchesTheValidator(unittest.TestCase):
+    """One grammar, one authority (validate_brief.py): a Brief the validator
+    rejects — here a repeated non-repeatable key — is unusable input to the
+    generator too, never silently collapsed to its first occurrence; the
+    repeatable keys (constraint, donor) still repeat."""
+
+    def brief_plus(self, extra_lines):
+        home = TempHome()
+        self.addCleanup(home.cleanup)
+        text = TATYOVA_BRIEF.read_text(encoding="utf-8")
+        return home.write("brief.txt", text + "\n".join(extra_lines) + "\n")
+
+    def generate_brief(self, brief_path):
+        return generate("--brief", brief_path, "--profile", PROFILE,
+                        "--oracle", FIXTURES / "scryfall" / "oracle.jsonl",
+                        "--date", REFERENCE_DATE)
+
+    def test_repeated_non_repeatable_key_is_refused_like_the_validator(self):
+        brief = self.brief_plus(["power: 5"])  # the fixture already says power: 2
+        rejected = run_cli(VALIDATOR, brief)
+        self.assertEqual(rejected.returncode, 1, rejected.stdout)
+        self.assertIn("repeats", rejected.stdout)
+        result = self.generate_brief(brief)
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("'power'", result.stderr)
+        self.assertIn("repeat", result.stderr)
+
+    def test_repeatable_keys_still_repeat(self):
+        brief = self.brief_plus(["constraint: at least 12 ramp cards",
+                                 "donor: all"])  # second constraint, second donor
+        accepted = run_cli(VALIDATOR, brief)
+        self.assertEqual(accepted.returncode, 0, accepted.stdout)
+        result = self.generate_brief(brief)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("ramp: 12", result.stdout)
+
+
 class PowerReadsAsTheBracket(unittest.TestCase):
     """Commander reads Power as the official Bracket: per-bracket Game
     Changers limits are 0 / 0 / 3 / unlimited / unlimited, and an unlimited
@@ -440,11 +609,12 @@ class PowerReadsAsTheBracket(unittest.TestCase):
         self.assertNotIn("game_changers_max", result.stdout)
         self.assertNotIn("legality.game_changers", result.stdout)
 
-    def test_unstated_power_defaults_to_bracket_2(self):
+    def test_unstated_power_defaults_to_bracket_2_labelled_default(self):
         result = self.generate_power([])
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("# brief: power: 2 — bracket allows 0 Game Changers",
+        self.assertIn("# default: power: 2 — bracket allows 0 Game Changers",
                       result.stdout)
+        self.assertNotIn("# brief: power:", result.stdout)
 
 
 class IdentityWithoutAnOracle(unittest.TestCase):

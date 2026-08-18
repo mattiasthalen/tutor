@@ -151,6 +151,29 @@ def mana_value(card):
     Oracle of ADR 0007, issue #48)."""
     return card["cmc"] if "cmc" in card else card["mana_value"]
 
+BASIC_LAND_TYPE_MANA = {"Plains": "W", "Island": "U", "Swamp": "B", "Mountain": "R", "Forest": "G"}
+ADD_CLAUSE = re.compile(r"\b[Aa]dd\b([^.\n]*)")
+MANA_SYMBOL = re.compile(r"\{([WUBRGC])\}")
+ANY_COLOR_CLAUSE = re.compile(
+    r"mana of any(?: one)? color|of the chosen color|of that color|in any combination")
+
+def produced_mana(card):
+    """Mana a land can produce, under either Oracle vocabulary: the
+    `produced_mana` field (the suite-shape prototype's fixtures) or — for the
+    Collection-home Oracle of ADR 0007, which carries no such field — derived
+    deterministically from the type line's basic land types and the oracle
+    text's "Add ..." abilities (a chosen-/any-color ability produces all
+    five)."""
+    if "produced_mana" in card:
+        return card["produced_mana"]
+    produced = {BASIC_LAND_TYPE_MANA[t] for t in BASIC_LAND_TYPE_MANA
+                if t in card.get("type_line", "")}
+    for clause in ADD_CLAUSE.findall(card.get("oracle_text", "")):
+        produced.update(MANA_SYMBOL.findall(clause))
+        if ANY_COLOR_CLAUSE.search(clause):
+            produced.update("WUBRG")
+    return sorted(produced)
+
 RARITY_ORDER = {"common": 0, "uncommon": 1, "rare": 2, "mythic": 3}
 
 # ---------- the Checks (fixed predicates; every parameter comes from the Suite) ----------
@@ -220,11 +243,11 @@ def run_checks(suite, deck_cards, oracle, collection):
               else f"not legal in {key}: {'; '.join(illegal)}")
 
     if "legality.game_changers" in wanted:
-        changers = sorted({n for n, c in expand if c and c.get("game_changer")})
-        count = sum(1 for n, c in expand if c and c.get("game_changer"))
+        changers = [n for n, c in expand if c and c.get("game_changer")]
+        count = len(changers)
         check("legality.game_changers", count <= p["game_changers_max"],
               f"{count} Game Changers, limit {p['game_changers_max']}"
-              + (f": {', '.join(changers)}" if count > p["game_changers_max"] else ""))
+              + (f": {', '.join(sorted(set(changers)))}" if count > p["game_changers_max"] else ""))
 
     if "legality.land_count" in wanted:
         check("legality.land_count", p["lands_min"] <= len(lands) <= p["lands_max"], f"{len(lands)} lands, need {p['lands_min']}-{p['lands_max']}")
@@ -247,7 +270,7 @@ def run_checks(suite, deck_cards, oracle, collection):
 
     if "manabase.color_coverage" in wanted:
         spell_colors = {col for n, c in nonland for col in c.get("colors", [])}
-        producible = {m for n, c in lands for m in c.get("produced_mana", [])}
+        producible = {m for n, c in lands for m in produced_mana(c)}
         gap = sorted(spell_colors - producible)
         check("manabase.color_coverage", not gap and (not spell_colors or lands), f"spells need {sorted(spell_colors) or 'nothing'}, lands make {sorted(producible) or 'nothing'}")
 
