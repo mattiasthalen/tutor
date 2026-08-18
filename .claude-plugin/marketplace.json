@@ -1,0 +1,15 @@
+{
+  "name": "tutor",
+  "description": "Marketplace for the tutor plugin — a Magic: The Gathering deckbuilder for the cards you actually own. Free and unpaywalled. tutor is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.",
+  "owner": {
+    "name": "Mattias Thalén",
+    "url": "https://github.com/mattiasthalen"
+  },
+  "plugins": [
+    {
+      "name": "tutor",
+      "source": "./",
+      "description": "Builds Magic: The Gathering decks from the cards you actually own — settle a Brief, build to a green Suite, get an honest Review. Free and unpaywalled. tutor is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC."
+    }
+  ]
+}
