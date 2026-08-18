@@ -9,7 +9,7 @@ The owner's physical Magic: The Gathering cards. Every Deck is built only from t
 _Avoid_: inventory, library (an MTG zone)
 
 **Export**:
-The CSV file ManaBox produces representing the Collection — its digital form. Whether it also carries deck assignments is under verification.
+The CSV file ManaBox produces representing the Collection — its digital form. Each card row records where it lives — a binder or one of the owner's ManaBox decks — so an Export carries deck assignments.
 _Avoid_: dump, backup
 
 **Brief**:
@@ -31,6 +31,10 @@ _Avoid_: snippet, export (that's ManaBox's)
 **Upgrade**:
 Rebuilding an existing Deck against a fresh Export and a possibly revised Brief.
 _Avoid_: respec, refresh
+
+**Donor Deck**:
+A Deck the Brief names as fair game for poaching — its cards count as available while building. Cards in any Deck not named a Donor Deck stay committed to it.
+_Avoid_: source deck
 
 **Format**:
 A named set of deck-construction rules that a Deck declares and checks read: deck size, copy limits, color rules, banlist. Formats are first-class — Commander is one Format among others, including house formats.
