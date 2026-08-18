@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+# scripts/release — cut a tutor release (ADR 0004).
+#
+# A release is the deliberate commit that bumps the pinned version in
+# .claude-plugin/plugin.json — the sole version authority. This script
+# performs the whole release: set the version, mirror it into every skill's
+# metadata.version (plugin and skills version in lockstep, one organism),
+# draft the CHANGELOG.md entry, run the plugin validators, commit, push, and
+# tag tutor--v{version} via `claude plugin tag --push`.
+#
+# Usage: scripts/release <major|minor|patch|X.Y.Z>
+
+set -euo pipefail
+
+die() {
+  printf 'release: %s\n' "$*" >&2
+  exit 1
+}
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/release <major|minor|patch|X.Y.Z> [--dry-run]
+
+Cut a tutor release: bump the pinned version in .claude-plugin/plugin.json,
+mirror it into every skill's metadata.version, draft the CHANGELOG.md entry,
+run the plugin validators, commit, push, and tag tutor--v{version}.
+
+With --dry-run, print the whole plan and run the validators, but change,
+commit, tag, and push nothing.
+EOF
+}
+
+# --- Arguments ---------------------------------------------------------------
+
+BUMP=""
+DRY_RUN=0
+for arg in "$@"; do
+  case "$arg" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      ;;
+    *)
+      [[ -z "$BUMP" ]] || { usage >&2; exit 1; }
+      BUMP=$arg
+      ;;
+  esac
+done
+[[ -n "$BUMP" ]] || { usage >&2; exit 1; }
+
+command -v jq >/dev/null 2>&1 || die "jq is required"
+command -v claude >/dev/null 2>&1 || die "the claude CLI is required"
+
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repository"
+cd "$ROOT"
+
+MANIFEST=.claude-plugin/plugin.json
+CHANGELOG=CHANGELOG.md
+[[ -f "$MANIFEST" ]] || die "$MANIFEST not found"
+[[ -f "$CHANGELOG" ]] || die "$CHANGELOG not found"
+
+# --- Compute the next version ------------------------------------------------
+
+CURRENT=$(jq -r '.version // empty' "$MANIFEST")
+[[ "$CURRENT" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] ||
+  die "current version '$CURRENT' in $MANIFEST is not X.Y.Z"
+MAJOR=${BASH_REMATCH[1]} MINOR=${BASH_REMATCH[2]} PATCH=${BASH_REMATCH[3]}
+
+case "$BUMP" in
+  major) NEXT=$((MAJOR + 1)).0.0 ;;
+  minor) NEXT=$MAJOR.$((MINOR + 1)).0 ;;
+  patch) NEXT=$MAJOR.$MINOR.$((PATCH + 1)) ;;
+  *)
+    [[ "$BUMP" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+      die "'$BUMP' is neither major/minor/patch nor an X.Y.Z version"
+    NEXT=$BUMP
+    ;;
+esac
+
+version_gt() { # true when $1 is strictly greater than $2 (both X.Y.Z)
+  local a1 a2 a3 b1 b2 b3
+  IFS=. read -r a1 a2 a3 <<<"$1"
+  IFS=. read -r b1 b2 b3 <<<"$2"
+  if ((a1 != b1)); then ((a1 > b1)); return; fi
+  if ((a2 != b2)); then ((a2 > b2)); return; fi
+  ((a3 > b3))
+}
+
+version_gt "$NEXT" "$CURRENT" ||
+  die "next version $NEXT must be strictly greater than the current $CURRENT — a release is a deliberate bump forward"
+
+TAG=tutor--v$NEXT
+TODAY=$(date +%F)
+SKILLS=(skills/*/SKILL.md)
+
+# --- The release must ship something deliberate ------------------------------
+
+grep -q '^## \[Unreleased\]' "$CHANGELOG" ||
+  die "$CHANGELOG has no [Unreleased] section to draft the release entry from"
+
+UNRELEASED_BODY=$(awk '
+  in_section && /^## / { exit }
+  in_section { print }
+  /^## \[Unreleased\][ \t]*$/ { in_section = 1 }
+' "$CHANGELOG")
+[[ -n "${UNRELEASED_BODY//[$' \t\n']/}" ]] ||
+  die "the [Unreleased] section of $CHANGELOG is empty — nothing deliberate to ship; write the release notes first"
+
+# --- Dry run: demo the whole release without cutting one ---------------------
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  cat <<EOF
+release: dry run — nothing will be changed, committed, tagged, or pushed
+
+  version  $CURRENT -> $NEXT
+  tag      $TAG (annotated, pushed to origin)
+  files    $MANIFEST
+           ${SKILLS[*]} (metadata.version mirrored)
+           $CHANGELOG ([$NEXT] - $TODAY entry drafted from [Unreleased])
+
+release: preflight — running the validators against the current tree
+EOF
+  claude plugin validate . --strict
+  claude plugin validate skills --strict
+  claude plugin validate commands --strict
+  printf 'release: dry run complete — rerun without --dry-run to cut %s\n' "$TAG"
+  exit 0
+fi
+
+# --- A release starts from a clean tree --------------------------------------
+
+[[ -z "$(git status --porcelain)" ]] ||
+  die "the working tree is not clean — a release is a deliberate commit of the bump alone; commit or stash first"
+
+# --- Set the version and mirror it into every skill --------------------------
+
+jq --arg v "$NEXT" '.version = $v' "$MANIFEST" >"$MANIFEST.tmp"
+mv "$MANIFEST.tmp" "$MANIFEST"
+
+mirror_skill() { # <SKILL.md path>
+  local file=$1
+  awk -v ver="$NEXT" '
+    /^---[ \t]*$/ { fence++; in_metadata = 0; print; next }
+    fence == 1 && /^metadata:[ \t]*$/ { in_metadata = 1; print; next }
+    fence == 1 && in_metadata && !done && /^[ \t]+version:/ {
+      sub(/version:.*/, "version: " ver)
+      done = 1
+      print
+      next
+    }
+    fence == 1 && in_metadata && /^[^ \t]/ { in_metadata = 0 }
+    { print }
+    END { exit done ? 0 : 3 }
+  ' "$file" >"$file.tmp" || {
+    rm -f "$file.tmp"
+    die "$file has no metadata.version to mirror the release into"
+  }
+  mv "$file.tmp" "$file"
+}
+
+for skill in "${SKILLS[@]}"; do
+  mirror_skill "$skill"
+done
+
+# --- Draft the changelog entry -----------------------------------------------
+
+awk -v ver="$NEXT" -v date="$TODAY" '
+  function flush(  i, first, last) {
+    last = buffered
+    while (last > 0 && buf[last - 1] ~ /^[ \t]*$/) last--
+    first = 0
+    while (first < last && buf[first] ~ /^[ \t]*$/) first++
+    print ""
+    print "## [" ver "] - " date
+    print ""
+    for (i = first; i < last; i++) print buf[i]
+  }
+  state == 1 && /^## / { flush(); print ""; state = 2 }
+  state == 0 && /^## \[Unreleased\][ \t]*$/ { print; state = 1; buffered = 0; next }
+  state == 1 { buf[buffered++] = $0; next }
+  { print }
+  END {
+    if (state == 1) flush()
+    if (state == 0) exit 3
+  }
+' "$CHANGELOG" >"$CHANGELOG.tmp" || {
+  rm -f "$CHANGELOG.tmp"
+  die "$CHANGELOG has no [Unreleased] section to draft the release entry from"
+}
+mv "$CHANGELOG.tmp" "$CHANGELOG"
+
+# --- Validate what is about to ship ------------------------------------------
+
+claude plugin validate . --strict
+claude plugin validate skills --strict
+claude plugin validate commands --strict
+
+# --- Commit, push, tag -------------------------------------------------------
+
+git add "$MANIFEST" "$CHANGELOG" "${SKILLS[@]}"
+git commit -m "Release $TAG"
+git push origin HEAD
+claude plugin tag --push -m 'tutor v%s' .
+
+printf 'release: %s cut — version %s pinned, tagged, and pushed\n' "$TAG" "$NEXT"

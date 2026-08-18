@@ -30,6 +30,11 @@ jobs:
       - name: Validate commands (strict)
         run: claude plugin validate commands --strict
 
+      # Release-flow behaviour tests: each test releases a fixture copy of
+      # this repo against a local bare remote, so nothing leaves the runner.
+      - name: Release flow tests
+        run: tests/release.test.sh
+
   suite-runner:
     name: Suite runner offline tests
     runs-on: ubuntu-latest
