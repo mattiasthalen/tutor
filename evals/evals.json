@@ -174,7 +174,7 @@
         "evals/fixtures/collections/real-collection.csv"
       ],
       "expectations": [
-        "The Upgrade Brief validates against the Export and frees the target Deck's own rows through donor: lines — an Upgrade is an ordinary Build re-run with the existing Deck's copies freed.",
+        "The Upgrade Brief validates against the Export and frees the target Deck's own rows through a donor: line — the rename case in action: automatic freeing keys on name identity, and the ManaBox deck's name matches neither the Brief's name: nor the Block's title, so the human's donor: line connects the two names.",
         "Every card in the built Deck is drawn from the Collection fixture: contention-aware availability over the Export's deck rows reports every copy free under the Brief's donor: lines.",
         "Declined contention is reported in the honest sentence shape: a want whose copies are all committed to a Deck the Brief never freed comes back as 'wanted <card>; all copies committed to <deck>'.",
         "Format legality holds and the Suite re-runs through the fixed runner: the built Suite over the shipped Deck Block reproduces the committed all-green report byte-identical, exit green.",

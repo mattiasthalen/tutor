@@ -83,8 +83,11 @@ mean for prompt-ware.
   are freed automatically at every seam — the availability helper (via the
   Brief's `name:` line and the Deck Block's title), printing pins at ship,
   and the runner's availability Check (the Deck under check is never held
-  against itself) — so the Deck never contends with itself and no `donor:`
-  line ever names it; every other Deck's contention stays honestly declined.
+  against itself) — so the Deck never contends with itself. The freeing keys
+  on name identity: a Deck renamed on one side names its ManaBox name as a
+  `donor:` once — the connection only the human can make, and the shipped
+  Upgrade fixture's donor line in action; every other Deck's contention
+  stays honestly declined.
   The byte-identical Suite re-runs as-is against the fresh Export (only
   cards new to the pool need fresh Role tagging), Build accepts a Review
   Block as input on a `playable`/`rebuild` Verdict — its Findings the

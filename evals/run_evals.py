@@ -1441,10 +1441,14 @@ def check_upgrade_brief(ctx):
         problems.append(f"the Upgrade Brief is invalid: {result.stdout.strip()[:200]}")
     text = brief.read_text(encoding="utf-8")
     if "donor: Tatyova, Benthic Druid" not in text:
-        problems.append("the Upgrade never frees the target Deck's own rows via donor:")
+        problems.append(
+            "the renamed ManaBox deck's own rows are never freed — automatic "
+            "freeing keys on name identity, so only the human's donor: line "
+            "connects 'Tatyova, Benthic Druid' to the rebuilt Deck")
     return not problems, "; ".join(problems) or (
-        "valid against the Export; donor: lines free Baylen and the rebuilt "
-        "Tatyova deck's own rows"
+        "valid against the Export; donor: lines free Baylen and — the rename "
+        "case: 'Tatyova, Benthic Druid' matches neither the Brief's name: nor "
+        "the Block's title — the rebuilt Deck's own rows"
     )
 
 
@@ -2034,7 +2038,7 @@ EXPECTATION_CHECKS = {
         check_review_skill_content,
     "The Review-flawed fixture Deck plants only Review-territory flaws: every Check green on the clean fixture Deck stays green on it through the unmodified runner, and each registered standards/brief flaw names owned cards present in the Deck.":
         check_review_flaw_registration,
-    "The Upgrade Brief validates against the Export and frees the target Deck's own rows through donor: lines — an Upgrade is an ordinary Build re-run with the existing Deck's copies freed.":
+    "The Upgrade Brief validates against the Export and frees the target Deck's own rows through a donor: line — the rename case in action: automatic freeing keys on name identity, and the ManaBox deck's name matches neither the Brief's name: nor the Block's title, so the human's donor: line connects the two names.":
         check_upgrade_brief,
     "Every card in the built Deck is drawn from the Collection fixture: contention-aware availability over the Export's deck rows reports every copy free under the Brief's donor: lines.":
         check_built_deck_collection_only,

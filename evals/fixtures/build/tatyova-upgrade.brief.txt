@@ -6,4 +6,4 @@ power: 2
 constraint: nothing above 6 mana
 donor: Baylen, the Haymaker
 donor: Tatyova, Benthic Druid
-notes: lands matter, steady card draw, no infinite combos; an Upgrade of the ManaBox deck named Tatyova, Benthic Druid — its own rows freed by the donor line above
+notes: lands matter, steady card draw, no infinite combos; an Upgrade of the ManaBox deck named Tatyova, Benthic Druid, renamed here to Tatyova Landfall — automatic freeing matches names, so the donor line above is the human connecting the two

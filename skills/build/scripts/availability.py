@@ -97,18 +97,24 @@ def load_pool(path):
     return owned, committed
 
 
-def donors_from_brief(path):
-    """The Brief Block's donor: lines, in file order."""
+def brief_values(path, wanted_key):
+    """Values of the Brief Block's ``<wanted_key>:`` lines, in file order —
+    the one keyed line-scan behind donors_from_brief and name_from_brief."""
     try:
         text = open(path, encoding="utf-8").read()
     except OSError as exc:
         unusable(f"cannot read the Brief: {exc}")
-    donors = []
+    values = []
     for line in text.splitlines():
         key, sep, value = line.partition(":")
-        if sep and key.strip() == "donor" and value.strip():
-            donors.append(value.strip())
-    return donors
+        if sep and key.strip() == wanted_key and value.strip():
+            values.append(value.strip())
+    return values
+
+
+def donors_from_brief(path):
+    """The Brief Block's donor: lines, in file order."""
+    return brief_values(path, "donor")
 
 
 def name_from_brief(path):
@@ -116,16 +122,12 @@ def name_from_brief(path):
 
     Export rows committed to a ManaBox deck carrying this name are the
     rebuilt Deck's own copies: an Upgrade re-run frees them automatically,
-    no donor: line needed (issue #56)."""
-    try:
-        text = open(path, encoding="utf-8").read()
-    except OSError as exc:
-        unusable(f"cannot read the Brief: {exc}")
-    for line in text.splitlines():
-        key, sep, value = line.partition(":")
-        if sep and key.strip() == "name" and value.strip():
-            return value.strip()
-    return None
+    no donor: line needed (issue #56). A Deck renamed on one side — its
+    ManaBox name matching neither this line nor the Deck Block's title —
+    is freed only by a donor: line, the connection only the human can
+    make."""
+    names = brief_values(path, "name")
+    return names[0] if names else None
 
 
 BOARD_HEADERS = ("Commander", "Mainboard", "Sideboard", "Maybeboard")
@@ -233,7 +235,10 @@ def main():
     # #56, no line needed — the Deck being built itself, named by the Brief's
     # name: line or the Deck Block's title. An Upgrade is an ordinary Build
     # re-run: the rebuilt Deck's own copies are freed automatically, so it
-    # never contends with itself.
+    # never contends with itself. The fixed runner's availability Check
+    # mirrors this self-freeing as its deck != deck_name filter
+    # (check_deck.py, suite-runner skill) — kept in lockstep by hand, never
+    # imported. Edit the two together.
     freed = list(args.donor)
     if args.brief:
         freed += donors_from_brief(args.brief)
