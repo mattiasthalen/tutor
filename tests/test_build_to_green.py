@@ -625,7 +625,8 @@ class BuildEndsGreenThroughTheFixedRunner(unittest.TestCase):
     """AC: Build loops — adding and swapping owned cards — until the Suite is
     green, and the Suite re-runs through the fixed runner. The committed
     built fixtures are that finished state: the Upgrade Brief (the existing
-    ManaBox Tatyova deck rebuilt, its own rows freed by donor: lines), the
+    ManaBox Tatyova deck rebuilt under a new name — the rename case, its own
+    rows freed by the donor: line only the human could write), the
     built Suite (the generated Suite plus recorded Role tags, targets never
     bent), the shipped Deck Block, and the all-green report, byte for byte."""
 
@@ -645,7 +646,9 @@ class BuildEndsGreenThroughTheFixedRunner(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         text = UPGRADE_BRIEF.read_text(encoding="utf-8")
         self.assertIn("donor: Tatyova, Benthic Druid\n", text,
-                      "the Upgrade frees the target Deck's own rows via donor:")
+                      "the rename case: the ManaBox deck's name matches neither "
+                      "the Brief's name: nor the Block title, so only the "
+                      "human's donor: line frees its rows")
 
     def test_every_check_is_green_and_the_report_is_the_committed_reference(self):
         self.assertEqual(self.result.returncode, 0,

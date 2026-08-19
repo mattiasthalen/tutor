@@ -119,7 +119,10 @@ def parse_deck(text):
         m = PIN.match(line) or PIN.match(stripped) or LUMP.match(stripped)
         if m:
             cards.append((int(m.group(1)), m.group(2).strip()))
-    return name or "Untitled", cards
+    # An untitled Block keeps name None: the report falls back to "Untitled"
+    # at the print seam, while the availability Check's self-free filter sees
+    # None — so a ManaBox deck literally named "Untitled" stays committed.
+    return name, cards
 
 # ---------- data access ----------
 
@@ -203,7 +206,8 @@ def produced_mana(card):
 
 RARITY_ORDER = {"common": 0, "uncommon": 1, "rare": 2, "mythic": 3}
 
-# ---------- the Checks (fixed predicates; every parameter comes from the Suite) ----------
+# ---------- the Checks (fixed predicates; every parameter comes from the Suite —
+# bar deck_name, read off the Deck Block's own title) ----------
 
 def run_checks(suite, deck_cards, oracle, collection, commitments=None,
                deck_name=None):
@@ -301,7 +305,11 @@ def run_checks(suite, deck_cards, oracle, collection, commitments=None,
         # check itself — rows committed to the ManaBox deck carrying the Deck
         # Block's own title are the rebuilt Deck's own copies, so the
         # byte-identical Suite re-runs at Upgrade against the fresh Export
-        # and the Deck never contends with itself (issue #56).
+        # and the Deck never contends with itself (issue #56). The self-free
+        # filter below (deck != deck_name) is a deliberate mirror of the
+        # build skill's availability.py arithmetic — the Brief's name: line /
+        # Deck Block title appended to the freed Decks — kept in lockstep by
+        # hand, never imported. Edit the two together.
         donors = cons.get("donors")
         donor_names = None if donors is None else {str(d).strip() for d in donors}
         if donor_names is None or any(d.lower() == "all" for d in donor_names):
@@ -448,7 +456,7 @@ def main():
         deck_name, deck_cards = parse_deck(f.read())
     results, unknown = run_checks(suite, deck_cards, oracle, collection, commitments,
                                   deck_name=deck_name)
-    print(report(suite, deck_name, results, unknown, len(oracle), run_date))
+    print(report(suite, deck_name or "Untitled", results, unknown, len(oracle), run_date))
     sys.exit(0 if all(ok for ok, _ in results.values()) else 1)
 
 if __name__ == "__main__":

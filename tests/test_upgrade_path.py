@@ -190,6 +190,29 @@ class RunnerAvailabilityNeverContendsWithTheDeckItself(unittest.TestCase):
             result.stdout,
         )
 
+    def test_an_untitled_deck_block_frees_nothing(self):
+        # No '// <name>' title line: the self-free filter gets no Deck name,
+        # so a ManaBox deck literally named "Untitled" stays committed — the
+        # report merely labels the run Untitled.
+        home = TempHome()
+        self.addCleanup(home.cleanup)
+        result = run_mini(
+            home, self.SUITE,
+            deck_text="// Mainboard\n1 Rhystic Study\n",
+            oracle_text=self.ORACLE,
+            collection_text=(
+                "Binder Name,Binder Type,Name,Quantity\n"
+                "Untitled,deck,Rhystic Study,1\n"
+            ),
+        )
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("deck: Untitled", result.stdout)
+        self.assertIn(
+            "red   availability.in_collection — missing: Rhystic Study "
+            "(need 1, own 1, free 0 — committed to Untitled)",
+            result.stdout,
+        )
+
 
 class UpgradeDeepEvalRunsGreen(SmokeGradingMixin, unittest.TestCase):
     """Acceptance: the upgrade-deep eval case grades the Upgrade offline —
