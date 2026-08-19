@@ -1,0 +1,105 @@
+# Kitchen 20 — the second first-class Format profile (spec #46, issue #57),
+# proving the pattern: a new Format is a data profile, not engine work
+# (ADR 0005). Deck-construction rules, check targets, and judgment-flavored
+# lists live here, read at Build start by generate_suite.py and snapshotted
+# into each Pack's Suite. The runner and generator carry no Kitchen 20 code.
+#
+# The packet rules are pinned by the Foundations Beginner Box research
+# (spec #46): a Pack is a 20-card mono-color Deck, strict singleton nonlands,
+# 8-9 lands with Uncharted Haven the only nonbasic, exactly 1 rare, evergreen
+# keywords only, no multicolor cards. Any two Packs shuffle into a 40-card
+# game with ~16-18 lands — the Jumpstart 40 play variant.
+
+format: kitchen 20
+display_name: Kitchen 20
+# Kitchen 20 carries no Power — the Format pins it (spec #46): the Brief may
+# not carry a power: line (validate_brief.py holds the same rule) and the
+# Suite shows no Power. There is consequently no Game Changers table here.
+power: none
+
+profile:
+  # Deck-construction rules and check targets. Only a Brief may override a
+  # target — never silently: every override lands in the Suite under a
+  # "brief:" provenance comment.
+  deck_size: 20
+  copy_limit_nonland: 1
+  # Mono-color, and strictly: a Pack shows one color and no multicolor cards,
+  # so any two Packs combine without mana-base surgery.
+  colors_max: 1
+  multicolor_cards: 0
+  # Exactly one rare — the Pack's payoff — and nothing above rare: no mythics.
+  rares_exact: 1
+  rarity_ceiling: rare
+  # 8-9 lands per Pack puts a shuffled two-Pack game at ~16-18 lands in 40.
+  lands_min: 8
+  lands_max: 9
+  nonbasic_allowed: [Uncharted Haven]
+  # Evergreen keywords only — the keyword list is profile data, spelled as
+  # the Oracle spells it (Scryfall keywords), read by legality.evergreen.
+  evergreen_keywords: [Deathtouch, Defender, Double strike, Enchant, Equip, First strike, Flash, Flying, Haste, Hexproof, Indestructible, Lifelink, Menace, Protection, Reach, Trample, Vigilance, Ward]
+  # Teaching curve: cheap plays every early turn, nothing the table waits on.
+  curve_avg_max: 3.0
+  early_nonland_cmc2_min: 4
+  # Consistency target, derived from the land window so both checks can green
+  # at once: exact hypergeometric P(>=2 lands in a 7-card hand | N=20, K=8) =
+  # 0.8944, rounded DOWN to two decimals so the boundary land count itself
+  # satisfies it. P rises with the land count (K=9 gives 0.9421), so
+  # lands_min is the binding case and the whole window [8, 9] clears 0.89.
+  p_2plus_lands_in_7_min: 0.89
+
+role_guidance:
+  # Judgment-flavored list (ADR 0005): how Kitchen 20 reads each global Role
+  # when Build tags a card. Tagging is judgment recorded once per card in the
+  # Suite's roles: section; counting the tags is mechanical. The profile sets
+  # no Role quotas — the packet rules above are the Pack's shape — so the
+  # tags document the teaching story rather than feed quota Checks.
+  ramp: Rare in a Pack - twenty cards need no acceleration to work.
+  draw: Refills the hand - one honest engine is plenty at this size.
+  removal: Answers a threat a new player can see coming - simple, targeted.
+  wipe: Almost never - a reset undoes the board a beginner just learned.
+  wincon: Closes the game - usually the rare, the card the Pack builds toward.
+  land: Any card with the Land type.
+  theme: Advances the Pack's named theme; other covers honest glue.
+
+review_standards:
+  # Per-Format Standards-axis judgment (ADR 0006), authored from the recorded
+  # Kitchen 20 seeds. The review skill applies these on top of its
+  # format-agnostic Smell baseline; an entry here sharing a baseline Smell's
+  # name overrides that Smell's reading — the profile overrides the baseline.
+  # Data, never code (ADR 0005): judgment-flavored guidance the Standards
+  # pass reads, like role_guidance, never a predicate. Pack-combining quality
+  # is review guidance, not a Check — no fixed predicate can judge one Pack
+  # against every Pack it might meet.
+  pack-combining quality: A Pack is half of every future game - judge it shuffled into any other Pack as a fair 40-card teaching game, so its plan must survive dilution to ten-of-twenty and lean on nothing outside itself.
+  teaching pilotability: A new player pilots this unaided - attacks that make sense, triggers that announce themselves, text a first game can hold; if a line needs a judge, it needs a different card.
+  rare-as-payoff: The one rare is the Pack's story peak - it should be the card the game builds toward and the reason to shuffle this Pack again, castable and visible, not a combo piece waiting for a partner Pack.
+
+checks:
+  # Check templates whose ids resolve to the runner's fixed predicates, in
+  # report order — the order the Kitchen 20 prototype Suite established.
+  # generate_suite.py inserts quota Checks and mechanical Brief Checks before
+  # the consistency Check.
+  - id: legality.size
+    text: Deck has exactly {deck_size} cards.
+  - id: legality.singleton
+    text: No nonland card appears more than {copy_limit_nonland} time(s).
+  - id: legality.mono_color
+    text: Deck uses at most {colors_max} color and {multicolor_cards} multicolor cards.
+  - id: legality.rare_count
+    text: Exactly {rares_exact} rare, nothing above {rarity_ceiling}.
+  - id: legality.land_count
+    text: Between {lands_min} and {lands_max} lands.
+  - id: legality.nonbasic_lands
+    text: Only nonbasic lands on the allowed list ({nonbasic_allowed}).
+  - id: legality.evergreen
+    text: Every keyword on every card is on the evergreen list.
+  - id: availability.in_collection
+    text: Every card (at its count) exists in the Collection.
+  - id: manabase.color_coverage
+    text: Lands can produce every color the spells ask for.
+  - id: curve.average
+    text: Average nonland mana value is at most {curve_avg_max}.
+  - id: curve.early_plays
+    text: At least {early_nonland_cmc2_min} nonland cards at mana value 2 or less.
+  - id: consistency.opening_lands
+    text: P(at least 2 lands in a 7-card opening hand) is at least {p_2plus_lands_in_7_min}.

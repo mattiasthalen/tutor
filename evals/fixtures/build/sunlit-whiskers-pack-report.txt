@@ -1,0 +1,19 @@
+suite: Sunlit Whiskers
+deck: Sunlit Whiskers
+format: Kitchen 20
+date: 2026-08-18
+oracle: data-backed (436 cards)
+verdict: green — 0 red / 12 green
+
+green legality.size — 20 cards, need exactly 20
+green legality.singleton — no nonland above 1 copy
+green legality.mono_color — colors ['W'], multicolor none
+green legality.rare_count — 1 rare(s): Giada, Font of Hope
+green legality.land_count — 9 lands, need 8-9
+green legality.nonbasic_lands — nonbasics all on the allowed list
+green legality.evergreen — all keywords evergreen
+green availability.in_collection — every card owned
+green manabase.color_coverage — spells need ['W'], lands make ['B', 'G', 'R', 'U', 'W']
+green curve.average — average 1.64, max 3.0
+green curve.early_plays — 11 nonland cards at mana value <=2, need 4
+green consistency.opening_lands — P(>=2 lands in 7) = 0.94, need 0.89

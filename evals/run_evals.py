@@ -46,6 +46,7 @@ CASE_NAMES = {
     5: "review-smoke",
     6: "build-deep",
     7: "upgrade-deep",
+    8: "kitchen20-vertical",
 }
 
 
@@ -387,7 +388,7 @@ def check_snapshot_coverage(ctx):
 
 ORACLE_FIELDS = {
     "name", "mana_value", "colors", "color_identity", "type_line",
-    "oracle_text", "legalities", "game_changer",
+    "oracle_text", "legalities", "game_changer", "rarity", "keywords",
 }
 TOKEN_LAYOUTS = {"token", "double_faced_token", "emblem", "art_series"}
 
@@ -1951,6 +1952,208 @@ def check_upgrade_skill_content(_ctx):
     )
 
 
+# --- Predicates for eval 8: the Kitchen 20 Format vertical (issue #57) ------
+
+KITCHEN_PROFILE = REPO_ROOT / "skills" / "build" / "profiles" / "kitchen-20.yaml"
+KITCHEN20_REVIEW_SEEDS = (
+    "pack-combining quality", "teaching pilotability", "rare-as-payoff")
+KITCHEN20_PACKET_CHECKS = (
+    "legality.size", "legality.singleton", "legality.mono_color",
+    "legality.rare_count", "legality.land_count", "legality.nonbasic_lands",
+    "legality.evergreen",
+)
+
+
+def check_kitchen20_profile(_ctx):
+    text = KITCHEN_PROFILE.read_text(encoding="utf-8")
+    problems = []
+    profile = section_lines(text, "profile")
+    for needle in (
+        "deck_size: 20", "copy_limit_nonland: 1", "colors_max: 1",
+        "multicolor_cards: 0", "rares_exact: 1", "rarity_ceiling: rare",
+        "lands_min: 8", "lands_max: 9", "nonbasic_allowed: [Uncharted Haven]",
+    ):
+        if needle not in profile:
+            problems.append(f"profile lacks {needle!r}")
+    evergreen = [l for l in profile if l.startswith("evergreen_keywords: [")]
+    if not evergreen:
+        problems.append("no evergreen_keywords list — the keyword list is profile data")
+    elif "Scry" in evergreen[0]:
+        problems.append("Scry sits on the evergreen list — the planted keyword flaw would pass")
+    if section_lines(text, "game_changers_max_by_power"):
+        problems.append("a Game Changers bracket table on a Format that carries no Power")
+    return not problems, "; ".join(problems) or (
+        "20-card mono-color packet targets, singleton, 8-9 lands with only "
+        "Uncharted Haven, exactly 1 rare capped at rare, no multicolor, the "
+        "evergreen keyword list — all data"
+    )
+
+
+def check_kitchen20_no_power(ctx):
+    import tempfile
+
+    problems = []
+    if "power: none" not in KITCHEN_PROFILE.read_text(encoding="utf-8"):
+        problems.append("the profile never pins power: none")
+    with tempfile.TemporaryDirectory() as tmp:
+        powered = pathlib.Path(tmp) / "powered-brief.txt"
+        powered.write_text(
+            "name: Sunlit Whiskers\nformat: kitchen 20\nidentity: white\npower: 3\n",
+            encoding="utf-8",
+        )
+        validated = run_brief_script(BRIEF_VALIDATOR, powered)
+        if validated.returncode != 1 or "no Power" not in validated.stdout:
+            problems.append("the validator accepts power: beside format: kitchen 20")
+        generated = run_build_cli(
+            BUILD_GENERATOR, "--brief", powered, "--profile", KITCHEN_PROFILE,
+            "--oracle", ctx.path("scryfall/oracle.jsonl"),
+            "--date", BUILD_REFERENCE_DATE,
+        )
+        if generated.returncode != 2 or "no Power" not in generated.stderr:
+            problems.append(
+                "the generator accepts a power: line the validator rejects "
+                f"(exit {generated.returncode})"
+            )
+    suite = ctx.path("build/sunlit-whiskers.suite.yaml").read_text(encoding="utf-8")
+    if "power" in suite.lower():
+        problems.append("the committed Kitchen 20 Suite mentions Power")
+    if "Kitchen 20 carries no Power" not in BRIEF_SKILL_PATH.read_text(encoding="utf-8"):
+        problems.append("the brief skill never says Kitchen 20 carries no Power")
+    return not problems, "; ".join(problems) or (
+        "power: none pinned; validator and generator both refuse a power: "
+        "line; no power segment in the Suite; the brief skill says not to ask"
+    )
+
+
+def check_kitchen20_suite_reproducible(ctx):
+    generated = run_build_cli(
+        BUILD_GENERATOR,
+        "--brief", ctx.path("briefs/kitchen20-sunlit-whiskers.txt"),
+        "--profile", KITCHEN_PROFILE,
+        "--oracle", ctx.path("scryfall/oracle.jsonl"),
+        "--date", BUILD_REFERENCE_DATE,
+    )
+    if generated.returncode != 0:
+        return False, f"generate_suite.py failed: {generated.stderr.strip()[:200]}"
+    committed = ctx.path("build/sunlit-whiskers.suite.yaml").read_text(encoding="utf-8")
+    if generated.stdout != committed:
+        return False, "committed fixture Suite differs from a fresh generation"
+    problems = []
+    ids = re.findall(r"^  - id: (\S+)$", committed, re.MULTILINE)
+    missing = [cid for cid in KITCHEN20_PACKET_CHECKS if cid not in ids]
+    if missing:
+        problems.append(f"packet Checks missing from the Suite: {missing}")
+    off_format = [cid for cid in ids
+                  if cid in ("legality.banlist", "legality.game_changers",
+                             "legality.color_identity")
+                  or cid.startswith("quota.")]
+    if off_format:
+        problems.append(f"off-Format Checks generated: {off_format}")
+    snapshot = section_lines(KITCHEN_PROFILE.read_text(encoding="utf-8"), "profile")
+    unsnapshotted = [l for l in snapshot if l not in section_lines(committed, "profile")]
+    if unsnapshotted:
+        problems.append(f"profile targets not snapshotted verbatim: {unsnapshotted}")
+    if section_lines(committed, "roles"):
+        problems.append("roles: is not empty — a card was picked before Build start?")
+    return not problems, "; ".join(problems) or (
+        f"fixture Suite reproduced byte-identical: {len(ids)} Checks with the "
+        "full packet class, targets snapshotted verbatim, roles empty — "
+        "declarative data through the untouched generator"
+    )
+
+
+def run_kitchen_pack(ctx, deck_rel):
+    return run_build_cli(
+        SUITE_RUNNER,
+        "--suite", ctx.path("build/sunlit-whiskers.suite.yaml"),
+        "--deck", ctx.path(deck_rel),
+        "--oracle", ctx.path("scryfall/oracle.jsonl"),
+        "--collection", ctx.path("collections/synthetic-kitchen20-pool.csv"),
+        "--date", BUILD_REFERENCE_DATE,
+    )
+
+
+def check_kitchen20_pack_green(ctx):
+    result = run_kitchen_pack(ctx, "decks/sunlit-whiskers-pack.txt")
+    problems = []
+    if result.returncode != 0:
+        problems.append(f"exit code {result.returncode}, green is 0")
+    committed = ctx.path("build/sunlit-whiskers-pack-report.txt").read_text(encoding="utf-8")
+    if result.stdout != committed:
+        problems.append("report differs from the committed reference")
+    colors = report_colors(result.stdout)
+    reds = sorted(cid for cid, color in colors.items() if color != "green")
+    if reds:
+        problems.append(f"red Checks on the clean Pack: {reds}")
+    absent = [cid for cid in KITCHEN20_PACKET_CHECKS if cid not in colors]
+    if absent:
+        problems.append(f"packet Checks absent from the report: {absent}")
+    return not problems, "; ".join(problems) or (
+        f"all {len(colors)} Checks green, byte-identical to the reference — "
+        "the fixture Pack builds green from the Kitchen 20 pool"
+    )
+
+
+def check_kitchen20_pack_flawed_red(ctx):
+    result = run_kitchen_pack(ctx, "decks/sunlit-whiskers-pack-flawed.txt")
+    problems = []
+    if result.returncode != 1:
+        problems.append(f"exit code {result.returncode}, red is 1")
+    committed = ctx.path("build/sunlit-whiskers-pack-flawed-report.txt").read_text(encoding="utf-8")
+    if result.stdout != committed:
+        problems.append("report differs from the committed reference")
+    colors = report_colors(result.stdout)
+    red_lines = {line.split()[1]: line for line in result.stdout.splitlines()
+                 if line.startswith("red")}
+    planted = {
+        "legality.rare_count": "Charming Prince",
+        "legality.mono_color": "Zoraline, Cosmos Caller",
+        "legality.nonbasic_lands": "Tranquil Cove",
+        "legality.evergreen": "Charming Prince (Scry)",
+        "legality.size": "21 cards",
+    }
+    for cid, needle in planted.items():
+        if colors.get(cid) != "red":
+            problems.append(f"{cid} is {colors.get(cid)}, not red")
+        elif needle not in red_lines[cid]:
+            problems.append(f"{cid} is red but never names {needle!r}")
+    return not problems, "; ".join(problems) or (
+        "second rare, multicolor card, off-profile nonbasic, non-evergreen "
+        "keyword, and the 21st card each red on their own packet Check, "
+        "byte-identical to the reference"
+    )
+
+
+def check_kitchen20_review_standards(ctx):
+    text = KITCHEN_PROFILE.read_text(encoding="utf-8")
+    standards = section_lines(text, "review_standards")
+    named = {l.split(":", 1)[0] for l in standards}
+    problems = []
+    missing = [seed for seed in KITCHEN20_REVIEW_SEEDS if seed not in named]
+    if missing:
+        problems.append(f"the Kitchen 20 profile lacks review standards {missing}")
+    if any(not l.partition(":")[2].strip() for l in standards):
+        problems.append("a review standard carries no guidance text")
+    suite_ids = re.findall(
+        r"^  - id: (\S+)$",
+        ctx.path("build/sunlit-whiskers.suite.yaml").read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+    template_ids = [l.split("- id:", 1)[1].strip()
+                    for l in section_lines(text, "checks") if l.startswith("- id:")]
+    leaked = [cid for cid in suite_ids + template_ids
+              if "combin" in cid or "pack" in cid]
+    if leaked:
+        problems.append(f"Pack combining leaked into Checks: {leaked}")
+    if "review_standards" not in REVIEW_SKILL_PATH.read_text(encoding="utf-8"):
+        problems.append("the review skill never reads the profile's review_standards")
+    return not problems, "; ".join(problems) or (
+        "pack-combining quality, teaching pilotability, rare-as-payoff "
+        "authored as data; Pack combining stays review guidance — no Check "
+        "id covers it"
+    )
+
+
 # --- Registry: exact expectation text -> fixed predicate --------------------
 # Keys are pinned verbatim to the strings in evals.json; editing a wording
 # means editing both, deliberately. Unregistered expectations are soft.
@@ -1976,7 +2179,7 @@ EXPECTATION_CHECKS = {
         check_snapshot_coverage,
     "The fixture Oracle scryfall/oracle.jsonl is byte-identical to a fresh offline derivation from the pinned snapshot.":
         check_oracle_rederivation,
-    "Every Oracle line is name-keyed with mana value, colors, color identity, type line, oracle text, the four sanctioned legalities, and the game_changer flag — no UUIDs, tokens excluded, basics included, multi-faced names flattened with //.":
+    "Every Oracle line is name-keyed with mana value, colors, color identity, type line, oracle text, the four sanctioned legalities, the game_changer flag, the deduped printing's rarity, and the keywords list — no UUIDs, tokens excluded, basics included, multi-faced names flattened with //.":
         check_oracle_shape,
     "The Oracle's first line records generated_at and the source Export's newest Added watermark.":
         check_oracle_watermark,
@@ -2070,6 +2273,18 @@ EXPECTATION_CHECKS = {
         check_upgrade_contention_still_declines,
     "The build skill's text pins the Upgrade contract: an ordinary Build re-run with a fresh Export and the existing Deck — no fourth deck verb; the existing Suite re-run as-is, never regenerated; the rebuilt Deck's own copies freed automatically; a Review Block consumed as the work list on a playable or rebuild Verdict; and the deck library treated as a growing library whose artifacts an Upgrade updates in place.":
         check_upgrade_skill_content,
+    "The Kitchen 20 profile ships as pure data pinned by the Foundations Beginner Box research: a 20-card mono-color Pack target, strict singleton nonlands, an 8-9 land window with Uncharted Haven the only allowed nonbasic, exactly 1 rare with rare as the ceiling, no multicolor cards, and the evergreen keyword list as profile data.":
+        check_kitchen20_profile,
+    "Kitchen 20 carries no Power — the profile pins power: none, the Brief validator rejects a power: line beside format: kitchen 20, the generator mirrors that rule, the committed Kitchen 20 Suite carries no power segment, and the brief skill says not to ask.":
+        check_kitchen20_no_power,
+    "Run over the fixture Kitchen 20 Brief, the Kitchen 20 profile, and the fixture Oracle, the untouched Suite generator reproduces the committed fixture Suite byte-identical: the packet Legality Checks generate from the profile through the existing engine, with no banlist, Game Changers, color-identity, or quota Check and an empty roles: section.":
+        check_kitchen20_suite_reproducible,
+    "Through the unmodified runner over the Kitchen 20 pool, the clean fixture Pack reports byte-identical to the committed reference: every Check green including the packet Legality Checks, exit code green — the fixture Pack pool builds green.":
+        check_kitchen20_pack_green,
+    "Through the unmodified runner, each planted packet violation goes red on its own Check — the second rare on legality.rare_count, the multicolor card on legality.mono_color, the off-profile nonbasic on legality.nonbasic_lands, the non-evergreen keyword on legality.evergreen, the 21st card on legality.size — byte-identical to the committed reference, exit code red.":
+        check_kitchen20_pack_flawed_red,
+    "The Kitchen 20 profile authors the per-Format review standards from the recorded seeds — pack-combining quality, teaching pilotability, rare-as-payoff — as data the Standards axis reads, and pack-combining quality stays review guidance, not a Check: no generated or templated Check id covers Pack combining.":
+        check_kitchen20_review_standards,
 }
 
 

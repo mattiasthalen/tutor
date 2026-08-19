@@ -69,6 +69,18 @@
         "violates": "a Kitchen 20 Pack is mono-color with no multicolor cards"
       },
       {
+        "id": "kitchen20-nonbasic",
+        "class": "legality",
+        "cards": ["Tranquil Cove"],
+        "violates": "Uncharted Haven is the only nonbasic land a Kitchen 20 Pack may run"
+      },
+      {
+        "id": "kitchen20-evergreen",
+        "class": "legality",
+        "cards": ["Charming Prince"],
+        "violates": "a Kitchen 20 Pack uses evergreen keywords only (Scry is off the profile's list)"
+      },
+      {
         "id": "kitchen20-size",
         "class": "legality",
         "cards": [],

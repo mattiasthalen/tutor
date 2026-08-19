@@ -15,5 +15,6 @@
 1 Deadly Riposte (FDN) 492
 1 Fleeting Flight (FDN) 13
 1 Uncharted Haven (FDN) 564
+1 Tranquil Cove (FDN) 270 // planted: off-profile nonbasic
 
-7 Plains
+6 Plains

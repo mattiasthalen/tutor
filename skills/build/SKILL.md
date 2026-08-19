@@ -18,7 +18,7 @@ TDD for decks (ADR 0003, amended by ADR 0005): at Build start the Suite — ever
 
 ## Pick the Format profile
 
-A Format is a first-class data profile: `${CLAUDE_PLUGIN_ROOT}/skills/build/profiles/<format-slug>.yaml`, slugged from the Brief's `format:` (lowercase, spaces to hyphens). Commander ships as `profiles/commander.yaml`; a Brief whose Format has no profile file yet stops here honestly — name the profiles that exist, never improvise targets.
+A Format is a first-class data profile: `${CLAUDE_PLUGIN_ROOT}/skills/build/profiles/<format-slug>.yaml`, slugged from the Brief's `format:` (lowercase, spaces to hyphens). Commander ships as `profiles/commander.yaml` and Kitchen 20 as `profiles/kitchen-20.yaml`; a Brief whose Format has no profile file yet stops here honestly — name the profiles that exist, never improvise targets.
 
 ## Generate the Suite — data, never code
 

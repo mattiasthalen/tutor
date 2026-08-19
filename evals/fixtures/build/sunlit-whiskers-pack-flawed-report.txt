@@ -1,0 +1,19 @@
+suite: Sunlit Whiskers
+deck: Sunlit Whiskers
+format: Kitchen 20
+date: 2026-08-18
+oracle: data-backed (436 cards)
+verdict: red — 7 red / 5 green
+
+red   legality.size — 21 cards, need exactly 20
+green legality.singleton — no nonland above 1 copy
+red   legality.mono_color — colors ['B', 'W'], multicolor ['Zoraline, Cosmos Caller']
+red   legality.rare_count — 3 rare(s): Charming Prince, Giada, Font of Hope, Zoraline, Cosmos Caller
+green legality.land_count — 8 lands, need 8-9
+red   legality.nonbasic_lands — not allowed: Tranquil Cove
+red   legality.evergreen — non-evergreen: Charming Prince (Scry)
+red   availability.in_collection — missing: Tranquil Cove (need 1, own 0); Zoraline, Cosmos Caller (need 1, own 0)
+green manabase.color_coverage — spells need ['B', 'W'], lands make ['B', 'G', 'R', 'U', 'W']
+green curve.average — average 1.77, max 3.0
+green curve.early_plays — 12 nonland cards at mana value <=2, need 4
+red   consistency.opening_lands — P(>=2 lands in 7) = 0.87, need 0.89

@@ -132,12 +132,13 @@ class OracleShape(unittest.TestCase):
     """Acceptance: one JSON line per unique card name — prints deduped, token
     rows excluded, basic lands included, multi-faced cards flattened with //.
     Fields exactly: name, mana value, colors, color identity, type line,
-    oracle text, legalities trimmed to the four sanctioned Formats, and the
-    game_changer boolean. No UUIDs."""
+    oracle text, legalities trimmed to the four sanctioned Formats, the
+    game_changer boolean, and — for the Kitchen 20 packet Checks (issue #57)
+    — the deduped printing's rarity and the keywords list. No UUIDs."""
 
     FIELDS = {
         "name", "mana_value", "colors", "color_identity", "type_line",
-        "oracle_text", "legalities", "game_changer",
+        "oracle_text", "legalities", "game_changer", "rarity", "keywords",
     }
 
     @classmethod
