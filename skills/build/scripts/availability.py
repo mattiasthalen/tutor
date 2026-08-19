@@ -78,10 +78,11 @@ def load_pool(path):
     ingestion posture of spec #46. Returns (owned, committed) where owned is
     {name: total copies} and committed is {name: {deck name: copies}}.
 
-    The fixed runner's ``load_commitments`` (check_deck.py, suite-runner
-    skill) is a deliberate mirror of the committed side of this reading —
-    kept in lockstep by hand, never imported, because skill assets stay
-    self-contained. Edit the two together.
+    The fixed runner's ``load_commitments`` and ``load_collection``
+    (check_deck.py, suite-runner skill) are deliberate mirrors of the
+    committed and owned sides of this reading — kept in lockstep by hand,
+    never imported, because skill assets stay self-contained. Edit the two
+    together.
     """
     owned, committed = {}, {}
     try:

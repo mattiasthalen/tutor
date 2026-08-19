@@ -192,5 +192,85 @@ class ReportBlockShape(unittest.TestCase):
                 )
 
 
+AVAILABILITY_SUITE = "\n".join([
+    "suite: Ingestion Probe",
+    "format: Commander",
+    "profile:",
+    "quotas:",
+    "constraints:",
+    "  donors: []",
+    "roles:",
+    "checks:",
+    "  - id: availability.in_collection",
+    "    text: Every card free in the Collection.",
+]) + "\n"
+
+CONTENTION_DECK = "// Probe\n// Mainboard\n1 Llanowar Elves\n1 Rhystic Study\n"
+
+# The availability Check reads card names only, so name-only records keep the
+# report's oracle line free of unknown-to-Oracle noise.
+CONTENTION_ORACLE = '[{"name": "Llanowar Elves"}, {"name": "Rhystic Study"}]'
+
+
+class ExportIngestion(unittest.TestCase):
+    """The runner reads the Export with the build side's ingestion posture
+    (issue #74): UTF-8 with BOM tolerance and skip-and-continue on malformed
+    rows — mirrored by hand from availability.py `load_pool` (build skill,
+    spec #46) — so a real ManaBox Export never fakes a green availability
+    Check and never crashes the run."""
+
+    def run_over_export(self, collection_text, encoding="utf-8"):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        home = pathlib.Path(tmp.name)
+        (home / "suite.yaml").write_text(AVAILABILITY_SUITE, encoding="utf-8")
+        (home / "deck.txt").write_text(CONTENTION_DECK, encoding="utf-8")
+        (home / "oracle.json").write_text(CONTENTION_ORACLE, encoding="utf-8")
+        (home / "collection.csv").write_text(collection_text, encoding=encoding)
+        return run_runner(
+            "--suite", home / "suite.yaml",
+            "--deck", home / "deck.txt",
+            "--oracle", home / "oracle.json",
+            "--collection", home / "collection.csv",
+            "--date", REFERENCE_DATE,
+        )
+
+    def test_bom_export_keeps_deck_row_commitments(self):
+        """ManaBox writes UTF-8 with BOM; the BOM must not mangle the first
+        header (Binder Name) into dropping every deck-row commitment — the
+        contention-aware availability Check stays honestly red."""
+        result = self.run_over_export(
+            "Binder Name,Binder Type,Name,Quantity\n"
+            "Shoebox,binder,Llanowar Elves,1\n"
+            "Tatyova,deck,Rhystic Study,1\n",
+            encoding="utf-8-sig",
+        )
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(
+            "red   availability.in_collection — missing: Rhystic Study "
+            "(need 1, own 1, free 0 — committed to Tatyova)",
+            result.stdout,
+        )
+        # The owned, uncommitted card still counts through the BOM'd Export.
+        self.assertNotIn("Llanowar Elves (need", result.stdout)
+
+    def test_malformed_quantity_row_is_skipped_not_fatal(self):
+        """A row whose Quantity does not parse is skipped — contributing to
+        neither the owned counts nor the deck-row commitments — and the run
+        reports instead of crashing, matching the build side's skip."""
+        result = self.run_over_export(
+            "Binder Name,Binder Type,Name,Quantity\n"
+            "Shoebox,binder,Llanowar Elves,1\n"
+            "Tatyova,deck,Rhystic Study,two\n"
+            "Shoebox,binder,Rhystic Study,1\n"
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stderr, "")
+        self.assertIn(
+            "green availability.in_collection — every card owned",
+            result.stdout,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
