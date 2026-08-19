@@ -45,6 +45,7 @@ CASE_NAMES = {
     4: "build-smoke",
     5: "review-smoke",
     6: "build-deep",
+    7: "upgrade-deep",
 }
 
 
@@ -1742,6 +1743,210 @@ def check_build_loop_content(_ctx):
     )
 
 
+# --- Upgrade predicates (issue #56) -----------------------------------------
+# The upgrade-deep case grades the Upgrade path offline: an Upgrade is an
+# ordinary Build re-run with a fresh Export and the existing Deck — no fourth
+# deck verb. The fresh Export is derived deterministically from the committed
+# Collection fixture (the post-import state ManaBox would sync after the
+# human assembles the shipped Deck); the byte-identical committed Suite
+# re-runs through the unmodified runner; the rebuilt Deck's own copies are
+# freed by the availability arithmetic automatically, never by a donor: line.
+
+UPGRADED_DECK_NAME = "Tatyova Landfall"
+
+
+def built_deck_wants(ctx):
+    """What the shipped Block physically holds, read with the harness's own
+    deck grammar: ({(name, set, collector number): count} for pinned lines,
+    {name: count} for lumped basics), the Maybeboard — wishlist, never
+    physical — excluded."""
+    pin_need, name_need, board = {}, {}, None
+    for line in ctx.path(BUILT_DECK_REL).read_text(encoding="utf-8").splitlines():
+        if line.startswith("//"):
+            head = line[2:].strip()
+            if head in ("Commander", "Mainboard", "Sideboard", "Maybeboard"):
+                board = head
+            continue
+        if not line.strip() or board == "Maybeboard":
+            continue
+        m = PINNED_LINE.match(line)
+        if m:
+            key = (m.group(2), m.group(3).lower(), m.group(4))
+            pin_need[key] = pin_need.get(key, 0) + int(m.group(1))
+            continue
+        m = BARE_LINE.match(line)
+        if m:
+            name_need[m.group(2)] = name_need.get(m.group(2), 0) + int(m.group(1))
+    return pin_need, name_need
+
+
+def upgraded_export_text(ctx):
+    """The fresh Export of an Upgrade, derived deterministically from the
+    committed fixtures: importing the shipped Block makes ManaBox commit the
+    Deck's copies to a deck named by the Block's title. Every pinned line
+    moves its count from the Export rows matching Name + set + collector
+    number in file order, lumped basics move by Name alone, and a row splits
+    when the Deck took only part of its Quantity."""
+    pin_need, name_need = built_deck_wants(ctx)
+    raw = ctx.path("collections/real-collection.csv").read_bytes().decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(raw))
+    out = io.StringIO()
+    writer = csv.DictWriter(out, fieldnames=reader.fieldnames, lineterminator="\n")
+    writer.writeheader()
+    for row in reader:
+        key = (row["Name"], row["Set code"].lower(), row["Collector number"])
+        need = None
+        if pin_need.get(key):
+            need = pin_need
+        elif name_need.get(row["Name"]):
+            need, key = name_need, row["Name"]
+        quantity = int(row["Quantity"])
+        take = min(quantity, need[key]) if need else 0
+        if take:
+            moved = dict(row)
+            moved.update({"Binder Name": UPGRADED_DECK_NAME,
+                          "Binder Type": "deck", "Quantity": str(take)})
+            writer.writerow(moved)
+            need[key] -= take
+        if quantity - take:
+            rest = dict(row)
+            rest["Quantity"] = str(quantity - take)
+            writer.writerow(rest)
+    unseated = {k: v for k, v in {**pin_need, **name_need}.items() if v}
+    if unseated:
+        raise AssertionError(f"the Export cannot seat the Deck: {unseated}")
+    return out.getvalue()
+
+
+def with_upgraded_export(ctx, run):
+    """Call ``run(fresh_export_path)`` with the derived fresh Export on disk."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        fresh = pathlib.Path(tmp) / "collection.csv"
+        fresh.write_text(upgraded_export_text(ctx), encoding="utf-8")
+        return run(fresh)
+
+
+def check_upgrade_frees_own_copies(ctx):
+    problems = []
+    brief_text = ctx.path(UPGRADE_BRIEF_REL).read_text(encoding="utf-8")
+    if f"donor: {UPGRADED_DECK_NAME}" in brief_text:
+        problems.append("the Brief donor-names the Deck itself — "
+                        "the freeing must be automatic")
+    result = with_upgraded_export(ctx, lambda fresh: run_build_cli(
+        BUILD_AVAILABILITY,
+        "--collection", fresh,
+        "--brief", ctx.path(UPGRADE_BRIEF_REL),
+        "--deck", ctx.path(BUILT_DECK_REL),
+    ))
+    if result.returncode != 0:
+        declined = [l for l in result.stdout.splitlines() if l.startswith("wanted ")]
+        problems.append(f"copies not free against the fresh Export: {declined[:5]}")
+    return not problems, "; ".join(problems) or (
+        f"{len(result.stdout.splitlines())} names checked at count against the "
+        "fresh Export — the Deck's own committed rows all free, no donor: "
+        "line naming the Deck"
+    )
+
+
+def check_upgrade_suite_rerun(ctx):
+    suite_path = ctx.path(BUILT_SUITE_REL)
+    before = suite_path.read_bytes()
+    result = with_upgraded_export(ctx, lambda fresh: run_build_cli(
+        SUITE_RUNNER,
+        "--suite", suite_path,
+        "--deck", ctx.path(BUILT_DECK_REL),
+        "--oracle", ctx.path("scryfall/oracle.jsonl"),
+        "--collection", fresh,
+        "--date", BUILD_REFERENCE_DATE,
+    ))
+    problems = []
+    if result.returncode != 0:
+        problems.append(f"exit {result.returncode}, green is 0")
+    committed = ctx.path(BUILT_REPORT_REL).read_text(encoding="utf-8")
+    if result.stdout != committed:
+        problems.append("the Upgrade report differs from the committed "
+                        "all-green reference")
+    if suite_path.read_bytes() != before:
+        problems.append("the Suite's bytes changed — an Upgrade regenerates nothing")
+    return not problems, "; ".join(problems) or (
+        "the committed Suite re-ran as-is against the fresh Export, bytes "
+        "untouched, reproducing the committed all-green report byte-identical"
+    )
+
+
+def built_suite_role_names(ctx):
+    names, inside = [], False
+    for line in ctx.path(BUILT_SUITE_REL).read_text(encoding="utf-8").splitlines():
+        if line.strip() and not line.startswith(" "):
+            inside = line.rstrip() == "roles:"
+            continue
+        if inside and line.startswith("  ") and not line.strip().startswith("#"):
+            names.append(line.strip().rsplit(": [", 1)[0])
+    return names
+
+
+def check_upgrade_roles_cover_deck(ctx):
+    pin_need, name_need = built_deck_wants(ctx)
+    deck_names = {name for name, _set, _num in pin_need} | set(name_need)
+    tagged = set(built_suite_role_names(ctx))
+    missing = sorted(deck_names - tagged)
+    return not missing, (
+        f"Deck cards without a recorded Role line: {missing[:5]}" if missing
+        else f"all {len(deck_names)} Deck names already carry Role lines — "
+             "an Upgrade with no new cards re-tags nothing"
+    )
+
+
+def check_upgrade_contention_still_declines(ctx):
+    # Exsanguinate: every owned copy committed to the Zoraline deck, which
+    # neither the donor: lines nor the Deck's own name free — the fresh
+    # Export must decline it exactly as the original did.
+    result = with_upgraded_export(ctx, lambda fresh: run_build_cli(
+        BUILD_AVAILABILITY,
+        "--collection", fresh,
+        "--brief", ctx.path(UPGRADE_BRIEF_REL),
+        "--want", "Exsanguinate",
+    ))
+    wanted = "wanted Exsanguinate; all copies committed to Zoraline, Cosmos Caller"
+    problems = []
+    if result.returncode != 1:
+        problems.append(f"exit {result.returncode}, a declined want is 1")
+    if wanted not in result.stdout:
+        problems.append(f"sentence missing; stdout: {result.stdout.strip()[:200]}")
+    return not problems, "; ".join(problems) or wanted
+
+
+def check_upgrade_skill_content(_ctx):
+    """Tripwire, not proof: the Upgrade flow is prompt-ware judged by its
+    artifacts; these needles keep the contract sentences from silently
+    vanishing in an edit."""
+    text = BUILD_SKILL_PATH.read_text(encoding="utf-8")
+    needles = [
+        "ordinary Build re-run",
+        "no fourth deck verb",
+        "freed automatically",
+        "never contends with itself",
+        "re-runs as-is",
+        "never regenerate",
+        "only cards new to the pool",
+        "Review Block",
+        "work list",
+        "`playable`",
+        "`rebuild`",
+        "growing library",
+        "in place",
+    ]
+    missing = [n for n in needles if n not in text]
+    return not missing, (
+        f"skills/build/SKILL.md lacks {missing}" if missing
+        else "the ordinary-re-run framing, automatic self-freeing, the as-is "
+             "Suite re-run, new-cards-only tagging, the Review Block work "
+             "list, and the growing-library contract are pinned"
+    )
+
+
 # --- Registry: exact expectation text -> fixed predicate --------------------
 # Keys are pinned verbatim to the strings in evals.json; editing a wording
 # means editing both, deliberately. Unregistered expectations are soft.
@@ -1851,6 +2056,16 @@ EXPECTATION_CHECKS = {
         check_pasted_export_tolerance,
     "The build skill's text pins the back half: the loop through the fixed runner with targets never bent, contention consulted and declined contention reported out loud, the honest red ending with the human's three options, the shipped Deck Block with the Fan Content footer and the informational-only legality caveat, the Maybeboard wishlist, and closing instructions naming the Blocks Review needs.":
         check_build_loop_content,
+    "A Build re-run given an existing Deck frees that Deck's own copies automatically: against a fresh Export whose deck rows commit the shipped Block's cards to the ManaBox deck its title names, contention-aware availability reports every copy free — no donor: line names the Deck itself.":
+        check_upgrade_frees_own_copies,
+    "The byte-identical Suite artifact re-runs against the fresh Export through the unmodified runner: nothing regenerates, the committed built Suite's bytes stay untouched, and the committed all-green report is reproduced byte-identical — the rebuilt Deck never contends with itself.":
+        check_upgrade_suite_rerun,
+    "Nothing already tagged is re-tagged: the built Suite's roles: section already covers every Deck card outside the Maybeboard, so only cards new to the pool would need fresh Role tagging at an Upgrade.":
+        check_upgrade_roles_cover_deck,
+    "Contention stays real at an Upgrade: against the fresh Export, a want whose copies sit in a Deck neither donor-named nor the Deck itself still declines in the honest sentence.":
+        check_upgrade_contention_still_declines,
+    "The build skill's text pins the Upgrade contract: an ordinary Build re-run with a fresh Export and the existing Deck — no fourth deck verb; the existing Suite re-run as-is, never regenerated; the rebuilt Deck's own copies freed automatically; a Review Block consumed as the work list on a playable or rebuild Verdict; and the deck library treated as a growing library whose artifacts an Upgrade updates in place.":
+        check_upgrade_skill_content,
 }
 
 

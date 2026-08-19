@@ -53,11 +53,11 @@ The wishlist Board: upgrade candidates worth a future slot, possibly outside the
 _Avoid_: wishlist, sideboard
 
 **Upgrade**:
-Rebuilding an existing Deck against a fresh Export and a possibly revised Brief.
+Rebuilding an existing Deck against a fresh Export and a possibly revised Brief — an ordinary Build re-run, never a fourth deck verb. The rebuilt Deck's own copies are freed automatically (a Deck never contends with itself), and an unchanged Brief's Suite re-runs as-is.
 _Avoid_: respec, refresh
 
 **Donor Deck**:
-A Deck the Brief names as fair game for poaching — its cards count as available while building. Cards in any Deck not named a Donor Deck stay committed to it. The Brief may name every Deck at once ("the entire collection is available"). Decks seated at the same Table are never Donor Decks for each other.
+A Deck the Brief names as fair game for poaching — its cards count as available while building. Cards in any Deck not named a Donor Deck stay committed to it — bar the Deck being rebuilt: an Upgrade frees its own copies automatically, no Donor naming needed. The Brief may name every Deck at once ("the entire collection is available"). Decks seated at the same Table are never Donor Decks for each other.
 _Avoid_: source deck
 
 **Format**:

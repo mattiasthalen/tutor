@@ -205,7 +205,8 @@ RARITY_ORDER = {"common": 0, "uncommon": 1, "rare": 2, "mythic": 3}
 
 # ---------- the Checks (fixed predicates; every parameter comes from the Suite) ----------
 
-def run_checks(suite, deck_cards, oracle, collection, commitments=None):
+def run_checks(suite, deck_cards, oracle, collection, commitments=None,
+               deck_name=None):
     p, q, cons, roles = suite["profile"], suite["quotas"], suite["constraints"], suite["roles"]
     # The Suite's check list decides what runs (ADR 0005: check ids resolve to
     # fixed predicates) — a Suite carries only the parameters its own checks
@@ -296,13 +297,19 @@ def run_checks(suite, deck_cards, oracle, collection, commitments=None):
         # under constraints — data, never code — turns on committed-by-default:
         # deck-row copies count only when their Deck is a donor ('all' frees
         # every Deck). A Suite without the key keeps the plain owned count.
+        # One Deck is always free without a donors entry: the Deck under
+        # check itself — rows committed to the ManaBox deck carrying the Deck
+        # Block's own title are the rebuilt Deck's own copies, so the
+        # byte-identical Suite re-runs at Upgrade against the fresh Export
+        # and the Deck never contends with itself (issue #56).
         donors = cons.get("donors")
         donor_names = None if donors is None else {str(d).strip() for d in donors}
         if donor_names is None or any(d.lower() == "all" for d in donor_names):
             free = dict(collection)
             held_by = {}
         else:
-            held_by = {nm: {deck: q for deck, q in decks.items() if deck not in donor_names}
+            held_by = {nm: {deck: q for deck, q in decks.items()
+                            if deck not in donor_names and deck != deck_name}
                        for nm, decks in (commitments or {}).items()}
             free = {nm: collection.get(nm, 0) - sum(held_by.get(nm, {}).values())
                     for nm in collection}
@@ -439,7 +446,8 @@ def main():
                    if suite.get("constraints", {}).get("donors") is not None else None)
     with open(args.deck) as f:
         deck_name, deck_cards = parse_deck(f.read())
-    results, unknown = run_checks(suite, deck_cards, oracle, collection, commitments)
+    results, unknown = run_checks(suite, deck_cards, oracle, collection, commitments,
+                                  deck_name=deck_name)
     print(report(suite, deck_name, results, unknown, len(oracle), run_date))
     sys.exit(0 if all(ok for ok, _ in results.values()) else 1)
 
