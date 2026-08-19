@@ -137,3 +137,27 @@ mean for prompt-ware.
   Standard fixture Deck proves the sanctioned-legality Check goes red naming
   the illegal card; the `formats-60` offline eval case grades the whole
   seam. (#58)
+- Tables — multi-deck sittings: one `/tutor:brief` conversation plans a whole
+  sitting as a Table Brief (`table:` anchor plus `seat:` lines — an index
+  that never embeds the per-Deck Briefs; seat grammar
+  `seat: [role —] <deck name>[, power N]`, two Seats minimum) plus N
+  untouched per-Deck Briefs, table-level power, constraints, play variant,
+  and donors copied into each Seat's Brief so every build session reads only
+  its own Brief. The Brief validator learned the Table grammar and the
+  cross-Brief checks (`--seat-brief`): the seat join, the copy-down, one
+  Format per Table, Kitchen 20's Power ban — and the mechanical
+  declared-Power match, every Seat's effective Power against the table's
+  unless its seat line overrides. Seats build sequentially through the
+  unchanged build loop, seat order = build order = contention priority: an
+  earlier Seat's finished Deck Block counts as committed copies via
+  `--table-mate` on the availability and ship scripts (pins spill to the
+  printings table-mates left free), no `donor:` line frees a table-mate, and
+  reallocation is a human re-brief loop. After the last Seat, `/tutor:review`
+  judges the sitting whole as a Table Review Block — `table:`/`date:` lines,
+  one overall `verdict:`, three axis sections (power spread, play patterns,
+  contention fallout) whose findings name Seats and cards — assembled by a
+  new stdlib-only assembler sharing the Deck Review's verdict arithmetic.
+  Upgrading one Seat later is an ordinary Upgrade carrying the Table Brief
+  and table-mate Deck Blocks. The `table-smoke` offline eval case grades the
+  whole seam over a family-Archenemy-night fixture Table, its mismatched
+  power variant red on cue. (#59)

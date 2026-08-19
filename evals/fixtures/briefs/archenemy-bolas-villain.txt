@@ -4,4 +4,6 @@ play variant: archenemy
 centerpiece: Nicol Bolas, God-Pharaoh
 identity: grixis
 power: 4, big villain turns
+constraint: nothing above 8 mana
+donor: Baylen, the Haymaker
 notes: the villain Seat for a family Archenemy night — heroes sit at power 3

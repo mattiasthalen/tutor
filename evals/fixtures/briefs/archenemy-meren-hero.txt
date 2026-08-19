@@ -1,0 +1,9 @@
+name: Meren Reanimator
+format: commander
+centerpiece: Meren of Clan Nel Toth
+identity: golgari
+play variant: archenemy
+power: 3
+constraint: nothing above 8 mana
+donor: Baylen, the Haymaker
+notes: a hero Seat for the family Archenemy night — graveyard value to grind past the villain

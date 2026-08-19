@@ -281,6 +281,40 @@
         "Through the unmodified runner, the sanctioned-legality Check reads the Oracle's per-card legalities: red on the legality-flawed Standard fixture Deck naming the card the Oracle marks not standard-legal, green over the all-legal Casual 60 Deck under the same Standard Suite.",
         "Run live, /tutor:build walks the Casual 60 Brief from generated Suite to green through the same fixed scripts, and /tutor:review fans out the two axes with the shared 60-card review standards read from the Format profile."
       ]
+    },
+    {
+      "id": 10,
+      "prompt": "Plan and run a family Archenemy night as a Table in a Collection home: one brief conversation produces the Table Brief plus the untouched per-Deck Seat Briefs with every table-level line copied down, the Seats build sequentially in seat order with an earlier Seat's finished Deck Block counted as committed copies, the declared-Power match runs as a mechanical Check, and the finished sitting is judged whole in a Table Review.",
+      "expected_output": "The fixture Table Brief validating as an index — table: anchor plus seat: lines, never embedding the per-Deck Briefs — whose seat deck names join the two Seat Briefs; the copy-down and declared-Power checks green over the good fixtures and red over the mismatched fixture; the availability and pin arithmetic declining a table-mate's committed copies in the honest sentence; and a Table Review Block — table:/date: lines, one overall verdict:, three axis sections whose findings name Seats and cards — assembled mechanically.",
+      "files": [
+        "skills/brief/SKILL.md",
+        "skills/build/SKILL.md",
+        "skills/review/SKILL.md",
+        "skills/brief/scripts/validate_brief.py",
+        "skills/build/scripts/availability.py",
+        "skills/build/scripts/ship_deck.py",
+        "skills/review/scripts/assemble_table_review.py",
+        "evals/fixtures/table/family-archenemy-night.table.txt",
+        "evals/fixtures/table/family-archenemy-night-mismatched.table.txt",
+        "evals/fixtures/briefs/archenemy-bolas-villain.txt",
+        "evals/fixtures/briefs/archenemy-meren-hero.txt",
+        "evals/fixtures/collections/real-collection.csv",
+        "evals/fixtures/manifest.json"
+      ],
+      "expectations": [
+        "The fixture Table Brief is recognized by its table: anchor plus seat: lines and validates as an index: seat grammar 'seat: [role —] <deck name>[, power N]' parsed with commas kept in the deck name, two Seats minimum held, and per-Deck keys refused as embedding.",
+        "One brief conversation's artifacts hold together: every seat: deck name joins its per-Deck Brief's name: line, each Seat's Brief is an untouched valid Brief on its own, and the table-level power, constraints, play variant, and donors are copied into every Seat's Brief.",
+        "The declared-Power match is a mechanical Check: every Seat's effective Power equals the table's unless its seat line overrides — green over the fixture Table with its Seat Briefs, red over the mismatched fixture naming the Seat.",
+        "Kitchen 20 Seats carry no Power: a Kitchen 20 Table Brief carrying a power: line or a seat-line override is refused.",
+        "Seat order = build order = contention priority: an earlier Seat's finished Deck Block counts as committed copies — the same want free before that Seat finishes is declined after it in the honest sentence naming the table-mate.",
+        "Table-mates are never Donor Decks: no donor: line — not even donor: all — frees a table-mate's copies, and a Table Brief donor: naming a Seat's deck is refused.",
+        "Printing pins respect the sitting: the ship script spills to the printing a table-mate left free and refuses when the table-mate holds every copy.",
+        "The Table Review Block is assembled mechanically: table: and date: reference lines, one overall verdict: line, the three axis sections — power spread, play patterns, contention fallout — side by side with the Deck Review's verdict arithmetic, findings naming Seats and cards, at most five per axis worst first, malformed Findings refused with exit 2 and no partial Block.",
+        "The skills pin the Tables loop: one brief conversation producing a Table Brief plus N untouched per-Deck Briefs (two Seats minimum), Seats building sequentially through the unchanged build loop with table-mate Blocks as committed copies, one Seat's later Upgrade carrying the Table Brief and table-mate Deck Blocks, reallocation as a human re-brief loop, and the Table Review after the last Seat.",
+        "Run live, one brief conversation for a family Archenemy night settles the whole sitting: the Table Brief and every Seat's Brief written to the Collection home, table-level lines copied down, seat order settled out loud.",
+        "Run live, the Seats build sequentially in seat order through /tutor:build, each later Seat consulting every earlier finished Deck Block as a table-mate, declined table contention reported out loud.",
+        "Run live after the last Seat, /tutor:review judges the sitting as a whole — power spread, play patterns, contention fallout — and assembles the Table Review Block through the assembler, findings naming Seats and cards."
+      ]
     }
   ]
 }

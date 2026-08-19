@@ -21,9 +21,17 @@ before a card is picked so contention is declined out loud, never silently.
 The ship script (``ship_deck.py``, same skill) imports the row-level helpers
 below so printing pins are drawn from the same free pool, never re-derived.
 
+At a Table (issue #59) the Seats build sequentially in seat order, and an
+earlier Seat's finished Deck Block counts as committed copies: ``--table-mate
+DECK_BLOCK`` (repeatable) reads such a Block — its ``// <name>`` title is the
+Deck the copies are committed to, its Maybeboard stays wishlist — and no
+``donor:`` line ever frees those copies, because table-mates are never Donor
+Decks; reallocation is a human re-brief loop.
+
 Usage:
     availability.py --collection EXPORT_CSV
                     [--brief BRIEF | --donor NAME ...]
+                    [--table-mate DECK_BLOCK ...]
                     (--want "Card Name" [--want ...] | --deck DECK_BLOCK)
 
 ``--brief`` reads the Brief Block's ``donor:`` lines and its ``name:`` line
@@ -189,19 +197,51 @@ def deck_wants(path, owned):
     return wants, title
 
 
-def free_copies(name, owned, committed, donors):
+def read_table_mate(path, owned):
+    """(deck name, {card name: copies}) from an earlier Seat's finished Deck
+    Block: the ``// <name>`` title is the Deck the copies are committed to;
+    every non-Maybeboard card line is a physical take (the Maybeboard is the
+    wishlist Board). The line grammar is deck_wants' — same regexes, same
+    owned-name lookaside for bare multi-faced lines."""
+    try:
+        first = open(path, encoding="utf-8").readline().strip()
+    except OSError as exc:
+        unusable(f"cannot read the table-mate Deck Block: {exc}")
+    if not first.startswith("//") or not first[2:].strip():
+        unusable(f"table-mate {path} has no '// <name>' title line — "
+                 "a finished Deck Block names its Deck first")
+    takes, _title = deck_wants(path, owned)
+    return first[2:].strip(), takes
+
+
+def commit_table_mates(committed, mate_paths, owned):
+    """Fold each table-mate Deck Block's takes into the committed counts;
+    returns the set of table-mate Deck names — the Decks no donor: line
+    frees (table-mates are never Donor Decks)."""
+    mates = set()
+    for path in mate_paths:
+        deck, takes = read_table_mate(path, owned)
+        mates.add(deck)
+        for name, qty in takes.items():
+            decks = committed.setdefault(name, {})
+            decks[deck] = decks.get(deck, 0) + qty
+    return mates
+
+
+def free_copies(name, owned, committed, donors, table_mates=frozenset()):
     """(free, held) for a name: free copies under the donor lines, and the
-    {deck: copies} still holding the rest. donor: all frees everything."""
+    {deck: copies} still holding the rest. donor: all frees everything —
+    except a table-mate's copies, which no donor: line ever frees."""
     total = owned.get(name, 0)
     held = {deck: qty for deck, qty in committed.get(name, {}).items()
-            if not deck_is_freed(deck, donors)}
+            if deck in table_mates or not deck_is_freed(deck, donors)}
     return total - sum(held.values()), held
 
 
-def report_want(name, need, owned, committed, donors):
+def report_want(name, need, owned, committed, donors, table_mates=frozenset()):
     """(ok, sentence) for one wanted name at its needed count."""
     total = owned.get(name, 0)
-    free, held = free_copies(name, owned, committed, donors)
+    free, held = free_copies(name, owned, committed, donors, table_mates)
     holders = ", ".join(sorted(held))
     if total == 0:
         return False, f"wanted {name}; not in the Collection"
@@ -222,6 +262,9 @@ def main():
     ap.add_argument("--brief", help="Brief Block file; its donor: lines free Decks")
     ap.add_argument("--donor", action="append", default=[],
                     help="free this Deck's copies (repeatable; 'all' frees everything)")
+    ap.add_argument("--table-mate", action="append", default=[], metavar="DECK_BLOCK",
+                    help="an earlier Seat's finished Deck Block; its copies count "
+                         "as committed and no donor frees them (repeatable)")
     ap.add_argument("--want", action="append", default=[], metavar="NAME",
                     help="card name to check for a free copy (repeat to want more)")
     ap.add_argument("--deck", help="Deck Block file; check every card at its count")
@@ -239,6 +282,7 @@ def main():
     # mirrors this self-freeing as its deck != deck_name filter
     # (check_deck.py, suite-runner skill) — kept in lockstep by hand, never
     # imported. Edit the two together.
+    table_mates = commit_table_mates(committed, args.table_mate, owned)
     freed = list(args.donor)
     if args.brief:
         freed += donors_from_brief(args.brief)
@@ -258,7 +302,8 @@ def main():
 
     declined = 0
     for name, count in need.items():
-        ok, sentence = report_want(name, count, owned, committed, freed)
+        ok, sentence = report_want(name, count, owned, committed, freed,
+                                   table_mates)
         declined += 0 if ok else 1
         print(sentence)
 

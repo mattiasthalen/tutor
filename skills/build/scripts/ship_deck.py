@@ -35,9 +35,17 @@ the declined-contention sentence (``wanted <card>; all copies committed to
 <deck>``). A card missing from the Oracle is no failure here: the Oracle
 only sharpens basic-land detection and multi-faced-name reading.
 
+At a Table (issue #59) an earlier Seat's finished Deck Block counts as
+committed copies: ``--table-mate DECK_BLOCK`` (repeatable) subtracts the
+mate's pinned takes from the free pool — printing-exact, fancier free copy
+first, mirroring the order the mate's own ship drew — so two Seats never pin
+the same physical copy. No ``donor:`` line frees a table-mate's copies:
+table-mates are never Donor Decks.
+
 Usage:
     ship_deck.py --deck DECK_BLOCK --collection EXPORT_CSV
                  [--brief BRIEF | --donor NAME ...]
+                 [--table-mate DECK_BLOCK ...]
                  [--oracle ORACLE] [--out FILE]
 
 Exit status: 0 shipped, 1 refused (the message names why), 2 unusable input.
@@ -191,20 +199,92 @@ def parse_deck(text, known_names):
     return title, boards
 
 
-def pin_lines(name, quantity, comment, printings, donors):
+def load_table_mates(paths, printings):
+    """Subtract each table-mate Deck Block's pinned takes from the free pool
+    — an earlier Seat's finished Deck counts as committed copies (issue
+    #59). A take matches its printing exactly and draws free rows first,
+    fancier finish first, mirroring the order the mate's own ship drew; the
+    subtracted copies re-enter the pool committed to the mate's Deck name.
+    Returns the set of table-mate Deck names — no donor: line frees them."""
+    mates = set()
+    for path in paths:
+        try:
+            lines = open(path, encoding="utf-8").read().splitlines()
+        except OSError as exc:
+            unusable(f"cannot read the table-mate Deck Block: {exc}")
+        if not lines or not lines[0].startswith("//") or not lines[0][2:].strip():
+            unusable(f"table-mate {path} has no '// <name>' title line — "
+                     "a finished Deck Block names its Deck first")
+        mate = lines[0][2:].strip()
+        mates.add(mate)
+        board = None
+        for raw in lines[1:]:
+            line = raw.strip()
+            if not line:
+                continue
+            if line.startswith("//"):
+                head = line[2:].strip()
+                if head in BOARD_ORDER:
+                    board = head
+                continue
+            if board == "Maybeboard":   # wishlist: never a physical take
+                continue
+            stripped = line.rsplit(" // ", 1)[0].strip() if " // " in line else line
+            m = PIN.match(line) or PIN.match(stripped)
+            pin = None
+            if m:
+                qty, name = int(m.group(1)), m.group(2).strip()
+                pin = (m.group(3), m.group(4))
+            else:
+                # A bare take — a lumped basic, or an unpinned line from a
+                # mate mid-build — still holds physical copies: subtract it
+                # name-level, the printing left to the fancier-first order.
+                bare = LUMP.match(line)
+                if bare and bare.group(2).strip() in printings:
+                    qty, name = int(bare.group(1)), bare.group(2).strip()
+                else:
+                    bare = LUMP.match(stripped)
+                    if not bare:
+                        continue
+                    qty, name = int(bare.group(1)), bare.group(2).strip()
+            rows = printings.get(name, [])
+            order = sorted(
+                range(len(rows)),
+                key=lambda i: (rows[i][4] is not None,
+                               -FINISH_RANK.get(rows[i][2], 0)),
+            )
+            remaining = qty
+            for i in order:
+                if remaining <= 0:
+                    break
+                row_set, row_number, foil, have, deck = rows[i]
+                if have <= 0 or (pin and (row_set, row_number) != pin):
+                    continue
+                take = min(remaining, have)
+                rows[i] = (row_set, row_number, foil, have - take, deck)
+                rows.append((row_set, row_number, foil, take, mate))
+                remaining -= take
+            # remaining > 0 means the mate holds copies the Export does not
+            # show free — the pin arithmetic below will refuse honestly.
+    return mates
+
+
+def pin_lines(name, quantity, comment, printings, donors, table_mates=frozenset()):
     """The pinned line(s) for one nonbasic, drawn only from the copies free
     under the donor lines (deck-row copies are committed by default —
-    availability.py's arithmetic): fancier free print first (etched over
-    foil over normal, then set code and collector number), spilling to the
-    next printing only as free counts allow. Too few free copies refuses in
-    the declined-contention sentence."""
+    availability.py's arithmetic) with every table-mate take already
+    subtracted: fancier free print first (etched over foil over normal, then
+    set code and collector number), spilling to the next printing only as
+    free counts allow. Too few free copies refuses in the
+    declined-contention sentence."""
     owned = printings.get(name)
     if not owned:
         refuse(f"{name} is not in the Collection — the Deck draws only from the "
                "Collection; unowned candidates belong on the Maybeboard")
     merged, held = {}, {}
     for set_code, number, foil, qty, deck in owned:
-        if deck is not None and not deck_is_freed(deck, donors):
+        if deck is not None and (deck in table_mates
+                                 or not deck_is_freed(deck, donors)):
             held[deck] = held.get(deck, 0) + qty
             continue
         key = (set_code, number, foil)
@@ -217,6 +297,8 @@ def pin_lines(name, quantity, comment, printings, donors):
     for (set_code, number, _foil), qty in ranked:
         if remaining <= 0:
             break
+        if qty <= 0:
+            continue
         take = min(remaining, qty)
         suffix = f" // {comment}" if comment else ""
         lines.append(f"{take} {name} ({set_code}) {number}{suffix}")
@@ -230,7 +312,12 @@ def pin_lines(name, quantity, comment, printings, donors):
                 if deck is not None:
                     committed[deck] = committed.get(deck, 0) + qty
             _ok, sentence = report_want(
-                name, quantity, {name: total}, {name: committed}, donors)
+                name, quantity, {name: total}, {name: committed}, donors,
+                table_mates)
+            if any(deck in table_mates for deck in held):
+                refuse(f"{sentence} — a table-mate's finished Deck holds "
+                       "them, and table-mates are never Donor Decks; "
+                       "reallocation is a human re-brief loop")
             refuse(f"{sentence} — the pin draws only from free copies; a "
                    "donor: line frees a committed Deck")
         refuse(f"{name}: the Deck wants {quantity}, the Collection holds "
@@ -252,7 +339,8 @@ def merge_entries(entries):
     return [(counts[name], name, comments[name]) for name in order]
 
 
-def ship(text, printings, oracle_names, oracle_basics, donors=()):
+def ship(text, printings, oracle_names, oracle_basics, donors=(),
+         table_mates=frozenset()):
     known = set(printings) | oracle_names
     title, boards = parse_deck(text, known)
     # The rebuilt Deck never contends with itself (issue #56): the Block's
@@ -283,7 +371,8 @@ def ship(text, printings, oracle_names, oracle_basics, donors=()):
         spells = [e for e in entries if not is_basic(e[1])]
         basics = [e for e in entries if is_basic(e[1])]
         for qty, name, comment in sorted(spells, key=lambda e: e[1].casefold()):
-            out.extend(pin_lines(name, qty, comment, printings, donors))
+            out.extend(pin_lines(name, qty, comment, printings, donors,
+                                 table_mates))
         if basics:
             if spells:
                 out.append("")
@@ -304,6 +393,10 @@ def main():
                                     "committed Decks' copies for pinning")
     ap.add_argument("--donor", action="append", default=[],
                     help="free this Deck's copies (repeatable; 'all' frees everything)")
+    ap.add_argument("--table-mate", action="append", default=[], metavar="DECK_BLOCK",
+                    help="an earlier Seat's finished Deck Block; its pinned "
+                         "takes leave the free pool and no donor frees them "
+                         "(repeatable)")
     ap.add_argument("--oracle", help="Oracle card-facts file (sharpens basic-land "
                                      "and multi-faced-name reading)")
     ap.add_argument("--out", help="write the shipped Block here instead of stdout")
@@ -314,13 +407,15 @@ def main():
     except OSError as exc:
         unusable(f"cannot read the Deck Block: {exc}")
     printings = load_printings(args.collection)
+    table_mates = load_table_mates(args.table_mate, printings)
     donors = list(args.donor)
     if args.brief:
         donors += donors_from_brief(args.brief)
     oracle_names, oracle_basics = (load_oracle_names(args.oracle)
                                    if args.oracle else (set(), set()))
 
-    shipped = ship(text, printings, oracle_names, oracle_basics, donors)
+    shipped = ship(text, printings, oracle_names, oracle_basics, donors,
+                   table_mates)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             f.write(shipped)

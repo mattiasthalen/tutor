@@ -1,6 +1,6 @@
 ---
 name: review
-description: Reviews a finished Deck along the two axes — Standards (format deckbuilding craft) and Brief (fidelity to the Brief's stated intent) — ending with a Review Block whose Verdicts are computed, never re-judged. Any ManaBox deck is reviewable, tutor-built or not. Use when the user runs /tutor:review, asks for judgment on a finished deck ("review this deck", "is this deck any good"), or wants to know whether a Deck is ready to ship.
+description: Reviews a finished Deck along the two axes — Standards (format deckbuilding craft) and Brief (fidelity to the Brief's stated intent) — ending with a Review Block whose Verdicts are computed, never re-judged. Any ManaBox deck is reviewable, tutor-built or not; a finished Table gets a Table Review judging the sitting as a whole. Use when the user runs /tutor:review, asks for judgment on a finished deck ("review this deck", "is this deck any good"), wants to know whether a Deck is ready to ship, or asks how a finished table night's decks hold up together.
 metadata:
   version: 0.1.0
 ---
@@ -83,3 +83,24 @@ Judge fidelity to the Brief's stated intent, line by line: the fuzzy asks (`note
 
 - `ship` — the Deck is done as asked: suggest the ManaBox import (the Deck Block imports as-is).
 - `playable` or `rebuild` — offer a Build re-run that consumes the Review Block: `/tutor:build` reads the Findings and their suggestions as its work list against the same Brief and Suite. The Deck file stands untouched either way — Review judges, Build edits.
+
+## Table Review: the sitting as a whole
+
+After a Table's last Seat ships, the finished sitting gets one more review — judged whole, not deck by deck (each Deck already gets its own Review above). Gather the Table Brief, every Seat's shipped Deck Block, and the per-Deck Review Blocks where they exist. The declared-Power match is already a mechanical Check (`validate_brief.py --seat-brief`, run at brief time, every Seat's effective Power against the table's) — felt fairness is what is judged here.
+
+Fan out three parallel subagents, one per axis — the same sequential fallback applies — each returning exactly one JSON array of Table Findings and nothing else. A Table Finding is a `severity` (`blocker` or `note`), the `seats` (Seat deck names) and `cards` it names — findings name Seats and cards — the `problem`, and at most one suggestion (`swap` or `maybeboard`):
+
+- **power spread** — does the sitting play like its numbers? A Seat playing above or below its declared Power, a villain the heroes cannot touch, a Pack pair that teaches nothing — felt fairness beside the mechanical match, never a recount of it.
+- **play patterns** — do the Decks clash at the table? Two hard-control Seats grinding the night to a halt, a combo Seat ending the game the play variant promised to stretch, piloting loads mismatched to who actually sits down.
+- **contention fallout** — what did seat order cost? The wants earlier Seats' finished Decks declined, the cards a later Seat settled for, and whether re-seating copies is worth a re-brief.
+
+Assemble mechanically — the same arithmetic as the Deck Review, never fresh judgment:
+
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/review/scripts/assemble_table_review.py" \
+  --table-name "<table>" \
+  --power-spread power-spread.json --play-patterns play-patterns.json \
+  --contention contention.json --out decks/<table-slug>.table-review.txt
+```
+
+The Table Review Block carries `table:` and `date:` reference lines, one overall `verdict:`, then the three axis sections side by side — power spread, play patterns, contention fallout — each with its own computed verdict and at most five Findings worst first, naming Seats and cards. Close on the Verdict as above, with one table-shaped difference: with `playable` or `rebuild`, the offer is the human re-brief loop — revise the Briefs (`/tutor:brief`), then re-run the affected Seats in seat order through `/tutor:build`; reallocation is never automatic, and no Seat is unbuilt by a review.

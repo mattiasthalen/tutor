@@ -67,3 +67,32 @@ Drop `--oracle` when no Oracle exists. Then ask the one question, quoting the Ex
 3. Write the Block to the Collection home as `decks/<slug>.brief.txt` — the growing deck library, one Brief beside the Deck it will produce. Slug the `name:` (lowercase, hyphens); fall back to the `format:` when unnamed. Show the human the final Block fenced, exactly as written.
 
 4. Hand off: the Brief is settled and where it lives; the next step is `/tutor:build`, which reads this Brief, generates the Suite from it and the Format profile before any card is picked, and builds until the Suite is green. Revising intent later is a re-run of this conversation over the same file.
+
+## Tables: one conversation plans the whole sitting
+
+When the ask is a multi-deck sitting — an Archenemy night, a Commander pod, a Kitchen 20 Pack set built to combine — it is a Table, and this same conversation settles it once: one Table Brief plus one untouched per-Deck Brief per Seat, two Seats minimum. Every table-level decision — `power:`, every `constraint:`, `play variant:`, every `donor:` — is copied verbatim into each Seat's Brief, because every build session reads only its own Brief; the Table Brief is an index that never embeds the per-Deck Briefs.
+
+1. Settle the table keys first, exactly as above: one `format:` per Table (play variants ride on top in `play variant:`, never as the Format); the shared `power:` (Kitchen 20 Tables and Seats carry no Power — the Format pins it); shared `constraint:` and `donor:` lines. A Deck seated at this Table is never a Donor Deck — table donors name outside Decks or `all`, and contention across the Table resolves by seat order, never by poaching a table-mate.
+2. Settle the Seats in order, and say that seat order = build order = contention priority — the villain before the heroes, or whichever Deck the owner wants first pick: an earlier Seat's finished Deck keeps the copies it took. One `seat:` line per Deck: `seat: [role —] <deck name>[, power N]` — the role (villain, hero) optional, the trailing `, power N` only where one Seat overrides the table's Power (a villain above the heroes), and every other comma part of the deck name ("Nicol Bolas, God-Pharaoh"). Each seat's deck name joins that Seat's Brief's `name:` line exactly.
+3. Then settle each Seat's own Brief in seat order — `name:`, `centerpiece:`, `identity:`, `notes:`, any seat-only constraints — with the table-level lines copied in and the Seat's effective Power declared: its `power:` equals the table's, or its seat line's override. The freshness question still fires exactly once for the whole conversation, never per Seat.
+4. Validate the sitting as a whole before writing, and fix every problem until the verdict is `valid`:
+
+   ```sh
+   python3 "${CLAUDE_PLUGIN_ROOT}/skills/brief/scripts/validate_brief.py" \
+     <table-file> --collection collection.csv \
+     --seat-brief <first-seat-brief> --seat-brief <second-seat-brief>
+   ```
+
+   That runs the Table Brief grammar, the seat join, the copy-down checks, and the mechanical declared-Power match — every Seat's effective Power equals the table's unless its seat line overrides. Validate each Seat's Brief on its own too, as in the close above — a Seat's Brief is an ordinary Brief.
+5. Write the Table Brief to `decks/<table-slug>.table.txt` and each Seat's Brief to `decks/<slug>.brief.txt` as usual, and show every Block fenced. For example:
+
+   ```
+   table: Family Archenemy Night
+   format: commander
+   play variant: archenemy
+   power: 3
+   seat: villain — Nicol Bolas, God-Pharaoh, power 4
+   seat: hero — Meren Reanimator
+   ```
+
+6. Hand off: `/tutor:build` runs once per Seat, in seat order, each session reading only that Seat's Brief — every later Seat passing each earlier Seat's finished Deck Block as `--table-mate`, so one physical copy never sits in two decks at the sitting. After the last Seat, `/tutor:review` judges the finished sitting as a whole in a Table Review. Contention a later Seat cannot live with is a human re-brief loop — revise the Briefs here, then re-run the affected Seats in seat order — never an automatic reallocation.

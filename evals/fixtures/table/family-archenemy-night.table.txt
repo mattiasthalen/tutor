@@ -1,0 +1,8 @@
+table: Family Archenemy Night
+format: commander
+play variant: archenemy
+power: 3
+constraint: nothing above 8 mana
+donor: Baylen, the Haymaker
+seat: villain — Bolas Villain, power 4
+seat: hero — Meren Reanimator
