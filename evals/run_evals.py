@@ -48,6 +48,7 @@ CASE_NAMES = {
     7: "upgrade-deep",
     8: "kitchen20-vertical",
     9: "formats-60",
+    10: "table-smoke",
 }
 
 
@@ -2421,6 +2422,441 @@ def check_sanctioned_legality_red(ctx):
 # means editing both, deliberately. Unregistered expectations are soft.
 
 
+# --- Table predicates (issue #59) -------------------------------------------
+# The table-smoke case grades Tables' deterministic seams offline: the Table
+# Brief grammar and cross-Brief checks (the validator), the table-mate
+# contention arithmetic (availability and ship CLIs), and the Table Review
+# assembler. The live conversation, the sequential /tutor:build walk, and
+# Table Review judgment quality stay soft, dev-time judged.
+
+TABLE_ASSEMBLER = (
+    REPO_ROOT / "skills" / "review" / "scripts" / "assemble_table_review.py"
+)
+
+TABLE_BRIEF_REL = "table/family-archenemy-night.table.txt"
+MISMATCHED_TABLE_REL = "table/family-archenemy-night-mismatched.table.txt"
+VILLAIN_BRIEF_REL = "briefs/archenemy-bolas-villain.txt"
+HERO_BRIEF_REL = "briefs/archenemy-meren-hero.txt"
+
+# An earlier Seat's finished takes, as a probe Deck Block: real owned cards
+# from the realism Export (Corsair Captain and Alania are the Collection's
+# only copies; Giant Growth (FDN) 223 is one of two owned printings; the
+# Maybeboard entry is wishlist, never a physical take). tests/
+# test_table_skill.py carries the same probe block — edit them together.
+VILLAIN_BLOCK_TEXT = """\
+// Bolas Villain
+
+// Commander
+1 Alania, Divergent Storm
+
+// Mainboard
+1 Corsair Captain
+1 Giant Growth (FDN) 223
+
+// Maybeboard
+1 Arcane Omens
+"""
+
+SPEC_SAMPLE_TABLE = """\
+table: Family Archenemy Night
+format: commander
+play variant: archenemy
+power: 3
+seat: villain — Nicol Bolas, God-Pharaoh, power 4
+seat: hero — Meren Reanimator
+"""
+
+
+def validate_table_text(text, *extra):
+    """Run the Brief validator over probe Table Brief text."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        table = pathlib.Path(tmp) / "table.txt"
+        table.write_text(text, encoding="utf-8")
+        return run_brief_script(BRIEF_VALIDATOR, table, *extra)
+
+
+def check_table_brief_grammar(ctx):
+    problems = []
+    good = run_brief_script(BRIEF_VALIDATOR, ctx.path(TABLE_BRIEF_REL))
+    if good.returncode != 0 or "Table Brief" not in good.stdout:
+        problems.append(
+            f"the fixture Table Brief did not validate as a Table Brief "
+            f"(exit {good.returncode}): {good.stdout.strip()[:200]}"
+        )
+    sample = validate_table_text(SPEC_SAMPLE_TABLE)
+    if sample.returncode != 0:
+        problems.append(
+            "the Tables decision's own sample — the comma-bearing deck name "
+            f"'Nicol Bolas, God-Pharaoh' with a power override — was refused: "
+            f"{sample.stdout.strip()[:200]}"
+        )
+    single = validate_table_text(
+        "table: Solo\nformat: commander\nseat: Only Deck\n"
+    )
+    if single.returncode != 1 or "two Seats" not in single.stdout:
+        problems.append(
+            f"a one-seat Table passed (exit {single.returncode}) — two Seats minimum"
+        )
+    embedded = validate_table_text(
+        "table: Night\nformat: commander\nname: Meren Reanimator\n"
+        "seat: A Deck\nseat: B Deck\n"
+    )
+    if embedded.returncode != 1 or "never embeds" not in embedded.stdout:
+        problems.append(
+            f"a per-Deck name: line inside the Table Brief passed "
+            f"(exit {embedded.returncode}) — the index never embeds"
+        )
+    return not problems, "; ".join(problems) or (
+        "the table: anchor plus seat: lines recognized; the spec's own "
+        "comma-bearing sample parses; one seat and embedded per-Deck keys refused"
+    )
+
+
+def check_table_artifacts_hold_together(ctx):
+    import tempfile
+
+    export = ctx.path("collections/real-collection.csv")
+    problems = []
+    joined = run_brief_script(
+        BRIEF_VALIDATOR, ctx.path(TABLE_BRIEF_REL),
+        "--seat-brief", ctx.path(VILLAIN_BRIEF_REL),
+        "--seat-brief", ctx.path(HERO_BRIEF_REL),
+        "--collection", export,
+    )
+    if joined.returncode != 0:
+        problems.append(
+            f"the fixture Table and its Seat Briefs do not hold together: "
+            f"{joined.stdout.strip()[:300]}"
+        )
+    for rel in (VILLAIN_BRIEF_REL, HERO_BRIEF_REL):
+        solo = run_brief_script(BRIEF_VALIDATOR, ctx.path(rel),
+                                "--collection", export)
+        if solo.returncode != 0 or "Brief Block" not in solo.stdout:
+            problems.append(
+                f"{rel} is not an untouched valid per-Deck Brief on its own: "
+                f"{solo.stdout.strip()[:200]}"
+            )
+    # The copy-down check is falsifiable: drop a copied table constraint
+    # from one Seat's Brief and the join must go red.
+    hero_text = ctx.path(HERO_BRIEF_REL).read_text(encoding="utf-8")
+    thinned = "".join(
+        line for line in hero_text.splitlines(keepends=True)
+        if not line.startswith("constraint:")
+    )
+    if thinned == hero_text:
+        problems.append(f"{HERO_BRIEF_REL} carries no copied constraint: line to probe")
+    else:
+        with tempfile.TemporaryDirectory() as tmp:
+            tampered = pathlib.Path(tmp) / "hero.txt"
+            tampered.write_text(thinned, encoding="utf-8")
+            broken = run_brief_script(
+                BRIEF_VALIDATOR, ctx.path(TABLE_BRIEF_REL),
+                "--seat-brief", ctx.path(VILLAIN_BRIEF_REL),
+                "--seat-brief", tampered,
+            )
+        if broken.returncode != 1 or "not copied" not in broken.stdout:
+            problems.append(
+                f"dropping a copied constraint stayed green (exit "
+                f"{broken.returncode}) — the copy-down check does not bind"
+            )
+    return not problems, "; ".join(problems) or (
+        "seat deck names join the Seat Briefs' name: lines, each Seat Brief "
+        "valid alone, table-level lines copied down — and dropping a copy "
+        "goes red"
+    )
+
+
+def check_table_power_match(ctx):
+    problems = []
+    good = run_brief_script(
+        BRIEF_VALIDATOR, ctx.path(TABLE_BRIEF_REL),
+        "--seat-brief", ctx.path(VILLAIN_BRIEF_REL),
+        "--seat-brief", ctx.path(HERO_BRIEF_REL),
+    )
+    if good.returncode != 0:
+        problems.append(
+            f"the good fixture Table went red (exit {good.returncode}): "
+            f"{good.stdout.strip()[:200]}"
+        )
+    bad = run_brief_script(
+        BRIEF_VALIDATOR, ctx.path(MISMATCHED_TABLE_REL),
+        "--seat-brief", ctx.path(VILLAIN_BRIEF_REL),
+        "--seat-brief", ctx.path(HERO_BRIEF_REL),
+    )
+    if bad.returncode != 1 or "declared-Power match" not in bad.stdout:
+        problems.append(
+            f"the mismatched fixture stayed green (exit {bad.returncode}): "
+            f"{bad.stdout.strip()[:200]}"
+        )
+    elif "Meren Reanimator" not in bad.stdout:
+        problems.append("the red verdict does not name the mismatched Seat")
+    return not problems, "; ".join(problems) or (
+        "villain override 4 and inherited hero 3 both match their Briefs; "
+        "the mismatched table (power 2 vs the Meren Brief's 3) goes red "
+        "naming the Seat"
+    )
+
+
+def check_kitchen20_table_power_ban(_ctx):
+    problems = []
+    table_power = validate_table_text(
+        "table: Teaching Night\nformat: kitchen 20\npower: 2\n"
+        "seat: Sunlit Whiskers\nseat: Ember Pups\n"
+    )
+    if table_power.returncode != 1 or "Kitchen 20" not in table_power.stdout:
+        problems.append(
+            f"a Kitchen 20 table power: line passed (exit {table_power.returncode})"
+        )
+    override = validate_table_text(
+        "table: Teaching Night\nformat: kitchen 20\n"
+        "seat: Sunlit Whiskers, power 2\nseat: Ember Pups\n"
+    )
+    if override.returncode != 1 or "Kitchen 20" not in override.stdout:
+        problems.append(
+            f"a Kitchen 20 seat power override passed (exit {override.returncode})"
+        )
+    clean = validate_table_text(
+        "table: Teaching Night\nformat: kitchen 20\n"
+        "seat: Sunlit Whiskers\nseat: Ember Pups\n"
+    )
+    if clean.returncode != 0:
+        problems.append(
+            f"a powerless Kitchen 20 Table was refused: {clean.stdout.strip()[:200]}"
+        )
+    return not problems, "; ".join(problems) or (
+        "Kitchen 20 Tables and Seats carry no Power — the table line and the "
+        "seat override are both refused, the powerless Table passes"
+    )
+
+
+def probe_villain_block(tmp):
+    block = pathlib.Path(tmp) / "bolas-villain.deck.txt"
+    block.write_text(VILLAIN_BLOCK_TEXT, encoding="utf-8")
+    return block
+
+
+def check_sequential_contention(ctx):
+    import tempfile
+
+    export = ctx.path("collections/real-collection.csv")
+    problems = []
+    before = run_build_cli(BUILD_AVAILABILITY, "--collection", export,
+                           "--want", "Corsair Captain")
+    if before.returncode != 0 or "1 free of 1 owned" not in before.stdout:
+        problems.append(
+            f"the want is not free before the earlier Seat finishes "
+            f"(exit {before.returncode}): {before.stdout.strip()[:200]}"
+        )
+    with tempfile.TemporaryDirectory() as tmp:
+        block = probe_villain_block(tmp)
+        after = run_build_cli(BUILD_AVAILABILITY, "--collection", export,
+                              "--table-mate", block,
+                              "--want", "Corsair Captain")
+    sentence = "wanted Corsair Captain; all copies committed to Bolas Villain"
+    if after.returncode != 1 or sentence not in after.stdout:
+        problems.append(
+            f"the earlier Seat's finished Block did not commit its copies "
+            f"(exit {after.returncode}): {after.stdout.strip()[:200]}"
+        )
+    return not problems, "; ".join(problems) or (
+        f"free before the villain finishes; after, {sentence!r}"
+    )
+
+
+def check_table_mates_never_donors(ctx):
+    import tempfile
+
+    export = ctx.path("collections/real-collection.csv")
+    problems = []
+    with tempfile.TemporaryDirectory() as tmp:
+        block = probe_villain_block(tmp)
+        for donor in ("Bolas Villain", "all"):
+            freed = run_build_cli(BUILD_AVAILABILITY, "--collection", export,
+                                  "--table-mate", block, "--donor", donor,
+                                  "--want", "Corsair Captain")
+            if freed.returncode != 1:
+                problems.append(
+                    f"--donor {donor} freed a table-mate's copies "
+                    f"(exit {freed.returncode})"
+                )
+    refused = validate_table_text(
+        "table: Night\nformat: commander\ndonor: A Deck\n"
+        "seat: A Deck\nseat: B Deck\n"
+    )
+    if refused.returncode != 1 or "never Donor Decks" not in refused.stdout:
+        problems.append(
+            f"a Table Brief donor: naming a Seat's deck passed "
+            f"(exit {refused.returncode})"
+        )
+    return not problems, "; ".join(problems) or (
+        "neither a donor: line naming the table-mate nor donor: all frees "
+        "its copies, and the Table Brief refuses a Seat-named donor"
+    )
+
+
+def check_table_pins(ctx):
+    import tempfile
+
+    export = ctx.path("collections/real-collection.csv")
+    problems = []
+    with tempfile.TemporaryDirectory() as tmp:
+        block = probe_villain_block(tmp)
+        deck = pathlib.Path(tmp) / "hero.deck.txt"
+        deck.write_text("// Meren Reanimator\n\n// Mainboard\n1 Giant Growth\n",
+                        encoding="utf-8")
+        spilled = run_build_cli(BUILD_SHIP, "--deck", deck,
+                                "--collection", export, "--table-mate", block)
+        deck.write_text(
+            "// Meren Reanimator\n\n// Mainboard\n1 Corsair Captain\n",
+            encoding="utf-8")
+        refused = run_build_cli(BUILD_SHIP, "--deck", deck,
+                                "--collection", export, "--table-mate", block)
+    if (spilled.returncode != 0
+            or "1 Giant Growth (SOA) 52" not in spilled.stdout
+            or "(FDN) 223" in spilled.stdout):
+        problems.append(
+            f"the pin did not spill to the printing the table-mate left free "
+            f"(exit {spilled.returncode}): {spilled.stdout.strip()[:200]}"
+        )
+    sentence = "wanted Corsair Captain; all copies committed to Bolas Villain"
+    if (refused.returncode != 1 or sentence not in refused.stderr
+            or "never Donor Decks" not in refused.stderr):
+        problems.append(
+            f"the pin took a copy the table-mate holds "
+            f"(exit {refused.returncode}): {refused.stderr.strip()[:200]}"
+        )
+    return not problems, "; ".join(problems) or (
+        "the villain took (FDN) 223, the hero pins (SOA) 52; the villain's "
+        "only Corsair Captain refuses with the honest sentence"
+    )
+
+
+def run_table_assembler(power_spread, play_patterns, contention):
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        args = [sys.executable, str(TABLE_ASSEMBLER),
+                "--table-name", "Probe Night", "--date", "2026-08-19"]
+        for flag, findings in (("--power-spread", power_spread),
+                               ("--play-patterns", play_patterns),
+                               ("--contention", contention)):
+            path = root / f"{flag.strip('-')}.json"
+            path.write_text(json.dumps(findings), encoding="utf-8")
+            args += [flag, str(path)]
+        return subprocess.run(args, capture_output=True, text=True, timeout=120)
+
+
+def table_probe_finding(severity="note", seats=("Probe Seat",),
+                        cards=("Probe Card",), problem="a probe problem",
+                        **suggestion):
+    entry = {"severity": severity, "seats": list(seats), "cards": list(cards),
+             "problem": problem}
+    entry.update(suggestion)
+    return entry
+
+
+def check_table_review_assembler(_ctx):
+    problems = []
+    shaped = run_table_assembler(
+        [table_probe_finding("blocker", ("Bolas Villain",), ("Expropriate",))],
+        [],
+        [table_probe_finding()],
+    )
+    if shaped.returncode != 0:
+        problems.append(f"assembler failed: {shaped.stderr.strip()[:120]}")
+    else:
+        lines = shaped.stdout.splitlines()
+        if lines[:3] != ["table: Probe Night", "date: 2026-08-19",
+                         "verdict: rebuild"]:
+            problems.append(f"reference lines are {lines[:3]}")
+        if len([l for l in lines if l.startswith("verdict: ")]) != 1:
+            problems.append("not exactly one overall verdict: line")
+        axis_lines = ["power spread: rebuild", "play patterns: ship",
+                      "contention fallout: playable"]
+        positions = [lines.index(l) for l in axis_lines if l in lines]
+        if len(positions) != 3 or positions != sorted(positions):
+            problems.append(f"axis sections wrong or out of order: {lines}")
+        if ("blocker — seats: Bolas Villain — cards: Expropriate — "
+                "a probe problem" not in lines):
+            problems.append("a Finding does not name its Seats and cards")
+    capped = run_table_assembler(
+        [table_probe_finding(seats=(f"Seat {n}",), cards=(f"Card {n}",))
+         for n in range(1, 8)], [], [])
+    shown = [l for l in capped.stdout.splitlines() if l.startswith("note — ")]
+    if len(shown) != 5 or "rest: 2 more notes" not in capped.stdout:
+        problems.append(
+            f"{len(shown)} Findings shown / rest summary missing — cap is 5"
+        )
+    buried = run_table_assembler(
+        [table_probe_finding() for _ in range(5)]
+        + [table_probe_finding("blocker")], [], [])
+    if "verdict: rebuild" not in buried.stdout:
+        problems.append("a blocker past the display cap no longer rebuilds")
+    for label, bad in (
+        ("no seats", {"severity": "note", "cards": ["A Card"], "problem": "x"}),
+        ("no cards", {"severity": "note", "seats": ["A Seat"], "problem": "x"}),
+        ("two suggestions", table_probe_finding(swap="A", maybeboard="B")),
+    ):
+        refused = run_table_assembler([bad], [], [])
+        if refused.returncode != 2 or refused.stdout != "":
+            problems.append(f"{label}: exit {refused.returncode} with "
+                            f"{'output' if refused.stdout else 'no output'}")
+    twice = [run_table_assembler([table_probe_finding("blocker")], [],
+                                 [table_probe_finding()]).stdout
+             for _ in range(2)]
+    if twice[0] != twice[1]:
+        problems.append("the same Findings assembled to different bytes")
+    return not problems, "; ".join(problems) or (
+        "table:/date:/one verdict:, the three axes in order, Seats and cards "
+        "named, cap five worst first, malformed refused, byte-deterministic"
+    )
+
+
+def check_table_skill_content(_ctx):
+    """Tripwire, not proof: the Tables loop is prompt-ware judged by its
+    artifacts; these needles keep the load-bearing sentences from silently
+    vanishing in an edit."""
+    problems = []
+    for path, needles in (
+        (BRIEF_SKILL_PATH, [
+            "Table Brief", "two Seats minimum", "untouched per-Deck Brief",
+            "copied verbatim", "reads only its own Brief", "never embeds",
+            "seat order = build order = contention priority",
+            "seat: [role —] <deck name>[, power N]", "--seat-brief",
+            "declared-Power match", ".table.txt",
+        ]),
+        (BUILD_SKILL_PATH, [
+            "seat order = build order = contention priority", "--table-mate",
+            "count as committed", "never Donor Decks",
+            "ordinary Upgrade carrying the Table Brief",
+            "unbuilding an earlier Seat",
+        ]),
+        (REVIEW_SKILL_PATH, [
+            "power spread", "play patterns", "contention fallout",
+            "assemble_table_review.py", "naming Seats and cards",
+            "human re-brief loop",
+        ]),
+    ):
+        text = path.read_text(encoding="utf-8")
+        missing = [n for n in needles if n not in text]
+        if missing:
+            problems.append(f"{path.name} lacks {missing}")
+    return not problems, "; ".join(problems) or (
+        "the one-conversation plan, the sequential loop with table-mate "
+        "commits, the Seat Upgrade, the human re-brief loop, and the Table "
+        "Review are pinned across the three skills"
+    )
+
+
+# --- Registry: exact expectation text -> fixed predicate --------------------
+# Keys are pinned verbatim to the strings in evals.json; editing a wording
+# means editing both, deliberately. Unregistered expectations are soft.
+
+
 EXPECTATION_CHECKS = {
     "The realism fixture collections/real-collection.csv parses header-keyed as CSV with exactly 577 data rows.":
         check_realism_row_count,
@@ -2561,8 +2997,26 @@ EXPECTATION_CHECKS = {
     "Through the unmodified runner, the sanctioned-legality Check reads the Oracle's per-card legalities: red on the legality-flawed Standard fixture Deck naming the card the Oracle marks not standard-legal, green over the all-legal Casual 60 Deck under the same Standard Suite.":
         check_sanctioned_legality_red,
     "The Kitchen 20 profile authors the per-Format review standards from the recorded seeds — pack-combining quality, teaching pilotability, rare-as-payoff — as data the Standards axis reads, and pack-combining quality stays review guidance, not a Check: no generated or templated Check id covers Pack combining.":
-        check_kitchen20_review_standards,
+        check_kitchen20_review_standards,    "The fixture Table Brief is recognized by its table: anchor plus seat: lines and validates as an index: seat grammar 'seat: [role —] <deck name>[, power N]' parsed with commas kept in the deck name, two Seats minimum held, and per-Deck keys refused as embedding.":
+        check_table_brief_grammar,
+    "One brief conversation's artifacts hold together: every seat: deck name joins its per-Deck Brief's name: line, each Seat's Brief is an untouched valid Brief on its own, and the table-level power, constraints, play variant, and donors are copied into every Seat's Brief.":
+        check_table_artifacts_hold_together,
+    "The declared-Power match is a mechanical Check: every Seat's effective Power equals the table's unless its seat line overrides — green over the fixture Table with its Seat Briefs, red over the mismatched fixture naming the Seat.":
+        check_table_power_match,
+    "Kitchen 20 Seats carry no Power: a Kitchen 20 Table Brief carrying a power: line or a seat-line override is refused.":
+        check_kitchen20_table_power_ban,
+    "Seat order = build order = contention priority: an earlier Seat's finished Deck Block counts as committed copies — the same want free before that Seat finishes is declined after it in the honest sentence naming the table-mate.":
+        check_sequential_contention,
+    "Table-mates are never Donor Decks: no donor: line — not even donor: all — frees a table-mate's copies, and a Table Brief donor: naming a Seat's deck is refused.":
+        check_table_mates_never_donors,
+    "Printing pins respect the sitting: the ship script spills to the printing a table-mate left free and refuses when the table-mate holds every copy.":
+        check_table_pins,
+    "The Table Review Block is assembled mechanically: table: and date: reference lines, one overall verdict: line, the three axis sections — power spread, play patterns, contention fallout — side by side with the Deck Review's verdict arithmetic, findings naming Seats and cards, at most five per axis worst first, malformed Findings refused with exit 2 and no partial Block.":
+        check_table_review_assembler,
+    "The skills pin the Tables loop: one brief conversation producing a Table Brief plus N untouched per-Deck Briefs (two Seats minimum), Seats building sequentially through the unchanged build loop with table-mate Blocks as committed copies, one Seat's later Upgrade carrying the Table Brief and table-mate Deck Blocks, reallocation as a human re-brief loop, and the Table Review after the last Seat.":
+        check_table_skill_content,
 }
+
 
 
 

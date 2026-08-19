@@ -52,7 +52,34 @@
     "briefs/archenemy-bolas-villain.txt": {
       "format": "commander",
       "deck": null,
-      "pool": null
+      "pool": "collections/real-collection.csv"
+    },
+    "briefs/archenemy-meren-hero.txt": {
+      "format": "commander",
+      "deck": null,
+      "pool": "collections/real-collection.csv"
+    }
+  },
+  "tables": {
+    "table/family-archenemy-night.table.txt": {
+      "format": "commander",
+      "seats": [
+        "briefs/archenemy-bolas-villain.txt",
+        "briefs/archenemy-meren-hero.txt"
+      ]
+    },
+    "table/family-archenemy-night-mismatched.table.txt": {
+      "format": "commander",
+      "seats": [
+        "briefs/archenemy-bolas-villain.txt",
+        "briefs/archenemy-meren-hero.txt"
+      ],
+      "planted_mismatch": {
+        "id": "table-power-mismatch",
+        "check": "declared-Power match",
+        "seat": "Meren Reanimator",
+        "violates": "the hero seat carries no override, so its effective Power is the table's 2 — the Meren Brief declares 3"
+      }
     }
   },
   "clean_decks": [
