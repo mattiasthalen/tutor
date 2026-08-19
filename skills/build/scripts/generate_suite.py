@@ -382,16 +382,26 @@ def build_suite(brief_text, profile_text, oracle, run_date):
     # Power reads through the profile: Commander reads it as the official
     # Bracket, whose Game Changers limit becomes a snapshotted target. An
     # unstated Power defaults to 2 — labelled "default:", never worn as the
-    # Brief's voice.
-    power_voice = "brief" if "power" in fields else "default"
-    power_value = fields.get("power", "2").strip()
-    m = re.match(r"^([1-5])(?:[\s,].*)?$", power_value)
-    if not m:
-        unusable(f"power: {power_value!r} is not on the 1-5 ladder — validate the "
-                 "Brief first")
-    power = int(m.group(1))
-    gc_table = prof.get("game_changers_max_by_power", {})
-    gc_limit = gc_table.get(str(power), "unlimited") if gc_table else None
+    # Brief's voice. A profile may instead pin Power off entirely (power:
+    # none — Kitchen 20, issue #57): then a Brief power: line is input the
+    # validator already rejects (its rule mirrored here) and the Suite's
+    # brief: line carries no power segment.
+    if str(prof.get("power", "")).strip().lower() == "none":
+        if "power" in fields:
+            unusable(f"power: {fields['power']!r} — "
+                     f"{prof.get('display_name', prof['format'])} carries no "
+                     "Power (the Format pins it); validate the Brief first")
+        power_voice, power, gc_limit = "default", None, None
+    else:
+        power_voice = "brief" if "power" in fields else "default"
+        power_value = fields.get("power", "2").strip()
+        m = re.match(r"^([1-5])(?:[\s,].*)?$", power_value)
+        if not m:
+            unusable(f"power: {power_value!r} is not on the 1-5 ladder — validate the "
+                     "Brief first")
+        power = int(m.group(1))
+        gc_table = prof.get("game_changers_max_by_power", {})
+        gc_limit = gc_table.get(str(power), "unlimited") if gc_table else None
 
     cons, cons_comments, must = apply_constraints(
         constraint_lines, profile, quotas, comments)
@@ -432,7 +442,8 @@ def build_suite(brief_text, profile_text, oracle, run_date):
     display = str(prof.get("display_name", prof["format"]))
     suite_name = fields.get("name") or centerpiece or display
     brief_line = " — ".join(
-        [fields["format"]] + ([centerpiece] if centerpiece else []) + [f"power {power}"])
+        [fields["format"]] + ([centerpiece] if centerpiece else [])
+        + ([f"power {power}"] if power is not None else []))
     return emit(suite_name, display, run_date, brief_line, profile, comments,
                 quotas, cons, cons_comments, must, donors, checks)
 

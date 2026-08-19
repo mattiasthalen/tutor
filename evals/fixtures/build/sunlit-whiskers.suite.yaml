@@ -1,0 +1,69 @@
+# Suite Block — generated at Build start from the Brief and the Format profile,
+# before any card is picked (ADR 0005). Data only: targets are snapshotted,
+# judgment lands as data, the fixed runner interprets. Re-running the Suite
+# (including at Upgrade) reuses this file as-is; only a changed Brief
+# regenerates it.
+
+suite: Sunlit Whiskers
+format: Kitchen 20
+generated: 2026-08-18
+brief: kitchen 20
+
+profile:
+  # Format-profile targets snapshotted at generation. Lines under a "brief:"
+  # comment were set or overridden by the Brief — the only voice allowed to.
+  deck_size: 20
+  copy_limit_nonland: 1
+  colors_max: 1
+  multicolor_cards: 0
+  rares_exact: 1
+  rarity_ceiling: rare
+  lands_min: 8
+  lands_max: 9
+  nonbasic_allowed: [Uncharted Haven]
+  evergreen_keywords: [Deathtouch, Defender, Double strike, Enchant, Equip, First strike, Flash, Flying, Haste, Hexproof, Indestructible, Lifelink, Menace, Protection, Reach, Trample, Vigilance, Ward]
+  curve_avg_max: 3.0
+  early_nonland_cmc2_min: 4
+  p_2plus_lands_in_7_min: 0.89
+  # brief: identity: white
+  color_identity: [W]
+
+quotas:
+  # Role quotas over the global Role vocabulary. One Check per line.
+
+constraints:
+  # Mechanical Brief constraints (judgment-free), one Check each.
+  # default: no donor lines — every deck-row copy stays committed
+  donors: []
+
+roles:
+  # Card -> Role tags: judgment recorded once per card as Build tags it.
+  # Empty until the Build picks and tags its first card.
+
+checks:
+  # The Suite: every id resolves to a fixed predicate in the runner (or a
+  # walkable sentence when no sandbox exists); every parameter lives above.
+  - id: legality.size
+    text: Deck has exactly {deck_size} cards.
+  - id: legality.singleton
+    text: No nonland card appears more than {copy_limit_nonland} time(s).
+  - id: legality.mono_color
+    text: Deck uses at most {colors_max} color and {multicolor_cards} multicolor cards.
+  - id: legality.rare_count
+    text: Exactly {rares_exact} rare, nothing above {rarity_ceiling}.
+  - id: legality.land_count
+    text: Between {lands_min} and {lands_max} lands.
+  - id: legality.nonbasic_lands
+    text: Only nonbasic lands on the allowed list ({nonbasic_allowed}).
+  - id: legality.evergreen
+    text: Every keyword on every card is on the evergreen list.
+  - id: availability.in_collection
+    text: Every card (at its count) exists in the Collection.
+  - id: manabase.color_coverage
+    text: Lands can produce every color the spells ask for.
+  - id: curve.average
+    text: Average nonland mana value is at most {curve_avg_max}.
+  - id: curve.early_plays
+    text: At least {early_nonland_cmc2_min} nonland cards at mana value 2 or less.
+  - id: consistency.opening_lands
+    text: P(at least 2 lands in a 7-card opening hand) is at least {p_2plus_lands_in_7_min}.

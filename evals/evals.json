@@ -214,6 +214,36 @@
         "The build skill's text pins the Upgrade contract: an ordinary Build re-run with a fresh Export and the existing Deck — no fourth deck verb; the existing Suite re-run as-is, never regenerated; the rebuilt Deck's own copies freed automatically; a Review Block consumed as the work list on a playable or rebuild Verdict; and the deck library treated as a growing library whose artifacts an Upgrade updates in place.",
         "Run live, /tutor:build recognizes an Upgrade from the existing Deck's artifacts in the deck library, re-runs the Suite as-is, tags only cards new to the pool, and consumes the Review Block's Findings as its work list — the revision loop stays manual, the human re-running Build after reading the Review."
       ]
+    },
+    {
+      "id": 8,
+      "prompt": "Prove Kitchen 20 is an equal-citizen Format in a Collection home: read the Kitchen 20 profile as pure data, generate the Sunlit Whiskers Suite from the fixture Brief through the unchanged engine, run the clean fixture Pack and its packet-flawed sibling over the Kitchen 20 pool through the fixed runner, and show the Format pinning Power off and authoring its per-Format review standards.",
+      "expected_output": "The Kitchen 20 vertical green on data alone: the committed fixture Suite reproduced byte-identical by the untouched generator, the clean Pack's all-green report and the flawed Pack's red report matching their committed references — second rare, multicolor card, and off-profile nonbasic each red on its own packet Check — no Power anywhere in the flow, and the three recorded review-standard seeds carried as profile data.",
+      "files": [
+        "skills/build/profiles/kitchen-20.yaml",
+        "skills/build/scripts/generate_suite.py",
+        "skills/suite-runner/scripts/check_deck.py",
+        "skills/brief/SKILL.md",
+        "skills/brief/scripts/validate_brief.py",
+        "skills/review/SKILL.md",
+        "evals/fixtures/briefs/kitchen20-sunlit-whiskers.txt",
+        "evals/fixtures/collections/synthetic-kitchen20-pool.csv",
+        "evals/fixtures/decks/sunlit-whiskers-pack.txt",
+        "evals/fixtures/decks/sunlit-whiskers-pack-flawed.txt",
+        "evals/fixtures/build/sunlit-whiskers.suite.yaml",
+        "evals/fixtures/build/sunlit-whiskers-pack-report.txt",
+        "evals/fixtures/build/sunlit-whiskers-pack-flawed-report.txt",
+        "evals/fixtures/scryfall/oracle.jsonl",
+        "evals/fixtures/manifest.json"
+      ],
+      "expectations": [
+        "The Kitchen 20 profile ships as pure data pinned by the Foundations Beginner Box research: a 20-card mono-color Pack target, strict singleton nonlands, an 8-9 land window with Uncharted Haven the only allowed nonbasic, exactly 1 rare with rare as the ceiling, no multicolor cards, and the evergreen keyword list as profile data.",
+        "Kitchen 20 carries no Power — the profile pins power: none, the Brief validator rejects a power: line beside format: kitchen 20, the generator mirrors that rule, the committed Kitchen 20 Suite carries no power segment, and the brief skill says not to ask.",
+        "Run over the fixture Kitchen 20 Brief, the Kitchen 20 profile, and the fixture Oracle, the untouched Suite generator reproduces the committed fixture Suite byte-identical: the packet Legality Checks generate from the profile through the existing engine, with no banlist, Game Changers, color-identity, or quota Check and an empty roles: section.",
+        "Through the unmodified runner over the Kitchen 20 pool, the clean fixture Pack reports byte-identical to the committed reference: every Check green including the packet Legality Checks, exit code green — the fixture Pack pool builds green.",
+        "Through the unmodified runner, each planted packet violation goes red on its own Check — the second rare on legality.rare_count, the multicolor card on legality.mono_color, the off-profile nonbasic on legality.nonbasic_lands, the non-evergreen keyword on legality.evergreen, the 21st card on legality.size — byte-identical to the committed reference, exit code red.",
+        "The Kitchen 20 profile authors the per-Format review standards from the recorded seeds — pack-combining quality, teaching pilotability, rare-as-payoff — as data the Standards axis reads, and pack-combining quality stays review guidance, not a Check: no generated or templated Check id covers Pack combining."
+      ]
     }
   ]
 }

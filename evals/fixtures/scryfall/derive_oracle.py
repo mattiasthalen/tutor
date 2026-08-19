@@ -11,11 +11,13 @@ red.
     python3 evals/fixtures/scryfall/derive_oracle.py            # rewrite oracle.jsonl
     python3 evals/fixtures/scryfall/derive_oracle.py --stdout   # print instead
 
-Shape (from the spec's Oracle decisions): one JSON line per unique card
-name — prints deduped, token rows excluded, basic lands included,
-multi-faced cards flattened with ``//``. Fields: name, mana_value, colors,
-color_identity, type_line, oracle_text, legalities trimmed to
-standard/pioneer/modern/commander, and the game_changer boolean. No UUIDs.
+Shape (from the spec's Oracle decisions, extended for the Kitchen 20 packet
+Checks in issue #57 — the Oracle stays trimmed to what Checks need): one
+JSON line per unique card name — prints deduped, token rows excluded, basic
+lands included, multi-faced cards flattened with ``//``. Fields: name,
+mana_value, colors, color_identity, type_line, oracle_text, legalities
+trimmed to standard/pioneer/modern/commander, the game_changer boolean, the
+deduped printing's rarity, and the keywords list. No UUIDs.
 
 Line one records ``generated_at`` plus the source Export's newest ``Added``
 watermark. ``generated_at`` is pinned to the snapshot's ``captured_at`` —
@@ -81,6 +83,12 @@ def flatten(card):
             for fmt in LEGALITY_FORMATS
         },
         "game_changer": bool(card.get("game_changer", False)),
+        # The Kitchen 20 packet Checks (issue #57) read these through the
+        # unmodified runner. Rarity is print-dependent: this is the deduped
+        # printing's — the first in (name, set, collector number, lang) order
+        # — deterministic, and exact wherever one printing is owned.
+        "rarity": card.get("rarity", ""),
+        "keywords": card.get("keywords", []),
     }
 
 

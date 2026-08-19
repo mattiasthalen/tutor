@@ -97,3 +97,23 @@ mean for prompt-ware.
   the committed all-green report reproduced against a fresh Export derived
   from the Collection fixture, freed-own-copies availability verified, and
   the Upgrade contract pinned in the build skill. (#56)
+- Kitchen 20 Format vertical: Kitchen 20 ships as an equal-citizen Format —
+  a pure-data profile (`skills/build/profiles/kitchen-20.yaml`) pinned by the
+  Foundations Beginner Box research: 20-card mono-color Pack, strict
+  singleton nonlands, an 8–9 land window with Uncharted Haven the only
+  nonbasic (any two Packs shuffle into a 40-card game at ~16–18 lands),
+  exactly 1 rare with rare as the ceiling, no multicolor cards, and the
+  evergreen keyword list as profile data. The packet Legality Checks generate
+  from the profile through the existing engine — the runner is untouched; the
+  generator gains one parameter-driven seam, `power: none`, letting a profile
+  pin Power off: Kitchen 20 carries no Power, the Brief validator and the
+  generator both refuse a `power:` line, and the Suite's `brief:` line shows
+  no power segment. Per-Format review standards are authored from the
+  recorded seeds — pack-combining quality, teaching pilotability,
+  rare-as-payoff — with pack-combining quality as review guidance, never a
+  Check. The Oracle gains the two card facts the packet predicates read (the
+  deduped printing's `rarity` and the `keywords` list), and the
+  `kitchen20-vertical` offline eval case grades the whole seam: the clean
+  fixture Pack builds green from the Kitchen 20 pool, and a planted second
+  rare, multicolor card, and off-profile nonbasic each go red on their own
+  packet Check. (#57)
