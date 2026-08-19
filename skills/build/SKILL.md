@@ -18,7 +18,7 @@ TDD for decks (ADR 0003, amended by ADR 0005): at Build start the Suite — ever
 
 ## Pick the Format profile
 
-A Format is a first-class data profile: `${CLAUDE_PLUGIN_ROOT}/skills/build/profiles/<format-slug>.yaml`, slugged from the Brief's `format:` (lowercase, spaces to hyphens). Commander ships as `profiles/commander.yaml` and Kitchen 20 as `profiles/kitchen-20.yaml`; a Brief whose Format has no profile file yet stops here honestly — name the profiles that exist, never improvise targets.
+A Format is a first-class data profile: `${CLAUDE_PLUGIN_ROOT}/skills/build/profiles/<format-slug>.yaml`, slugged from the Brief's `format:` (lowercase, spaces to hyphens). Commander ships as `profiles/commander.yaml`, Kitchen 20 as `profiles/kitchen-20.yaml`, and the four 60-card Formats as `profiles/casual-60.yaml`, `profiles/standard.yaml`, `profiles/modern.yaml`, and `profiles/pioneer.yaml` — the sanctioned three are Casual 60 plus exactly a banlist parameter, legality read per card from the Oracle's legalities, never a hand-maintained banlist. Each profile also reads the Brief's 1–5 Power through its own `power_ladder:` (or bracket table) data; a profile pinning `power: none` carries no Power at all. A Brief whose Format has no profile file yet stops here honestly — name the profiles that exist, never improvise targets.
 
 ## Generate the Suite — data, never code
 

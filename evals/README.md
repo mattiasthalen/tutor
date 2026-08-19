@@ -62,7 +62,11 @@ flaw; the smoke case cross-checks it.
   fixture Tatyova Brief: the generated Suite and red empty-Deck report
   (Build starts red), and the finished state — the Upgrade Brief, the built
   Suite with its recorded Role tags, the shipped ManaBox-importable Deck
-  Block, and the all-green report (Build ends green).
+  Block, and the all-green report (Build ends green). The Casual 60 built
+  Suite and all-green report (the 60-card Formats vertical) sit beside them.
+- `fixtures/review/` — Review's committed reference artifacts: per-axis
+  Findings arrays (judgment recorded once, as data) and the Review Block the
+  assembler computes from them byte-reproducibly.
 - `fixtures/scryfall/` — the pinned Scryfall snapshot (`snapshot.jsonl`)
   covering exactly the fixture cards, and the fixture Oracle
   (`oracle.jsonl`) derived from it byte-reproducibly by `derive_oracle.py`.

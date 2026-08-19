@@ -1,0 +1,17 @@
+// Kitchen Stampede
+
+// Mainboard
+4 Blacksmith's Talent (BLB) 125
+3 Blooming Blast (BLB) 126
+4 Brazen Collector (BLB) 128
+3 Coruscation Mage (BLB) 131
+2 Emberheart Challenger (BLB) 133
+3 Hired Claw (BLB) 140
+4 Might of the Meek (BLB) 144
+2 Playful Shove (BLB) 145
+2 Rabid Gnaw (BLB) 147
+4 Raccoon Rallier (BLB) 148
+3 Sazacap's Brew (BLB) 151
+2 War Squeak (BLB) 160
+
+24 Mountain

@@ -1,0 +1,19 @@
+suite: Kitchen Stampede
+deck: Kitchen Stampede
+format: Casual 60
+date: 2026-08-18
+oracle: data-backed (436 cards)
+verdict: green — 0 red / 12 green
+
+green legality.size — 60 cards, need exactly 60
+green legality.singleton — no nonland above 4 copies
+green legality.color_identity — every card inside ['R']
+green legality.land_count — 24 lands, need 20-26
+green availability.in_collection — every card owned
+green manabase.color_coverage — spells need ['R'], lands make ['R']
+green curve.average — average 1.64, max 3.0
+green curve.early_plays — 36 nonland cards at mana value <=2, need 12
+green quota.draw — 5 tagged draw, need 4
+green quota.removal — 7 tagged removal, need 6
+green quota.wincon — 12 tagged wincon, need 2
+green consistency.opening_lands — P(>=2 lands in 7) = 0.86, need 0.75

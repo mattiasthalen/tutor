@@ -1,0 +1,13 @@
+[
+  {
+    "severity": "note",
+    "cards": ["Playful Shove", "Rabid Gnaw", "Blooming Blast"],
+    "problem": "playset discipline - the deck's only interaction sits at two and three copies while the pool owns no fourth; the games that need an answer on curve will not always find one"
+  },
+  {
+    "severity": "note",
+    "cards": ["Blacksmith's Talent"],
+    "problem": "no comeback plan - with nothing above two mana and no sweeper, a lost board stays lost; the Class levels are the deck's only late-game mana sink",
+    "maybeboard": "Manifold Mouse"
+  }
+]

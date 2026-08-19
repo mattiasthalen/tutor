@@ -244,6 +244,43 @@
         "Through the unmodified runner, each planted packet violation goes red on its own Check — the second rare on legality.rare_count, the multicolor card on legality.mono_color, the off-profile nonbasic on legality.nonbasic_lands, the non-evergreen keyword on legality.evergreen, the 21st card on legality.size — byte-identical to the committed reference, exit code red.",
         "The Kitchen 20 profile authors the per-Format review standards from the recorded seeds — pack-combining quality, teaching pilotability, rare-as-payoff — as data the Standards axis reads, and pack-combining quality stays review guidance, not a Check: no generated or templated Check id covers Pack combining."
       ]
+    },
+    {
+      "id": 9,
+      "prompt": "Build and review a Casual 60 deck in a Collection home from the fixture Casual 60 Brief over the Standard-shaped pool, and prove the thin sanctioned 60-card Formats — Standard, Modern, Pioneer — are data profiles whose legality is read per card from the Oracle's legalities: the sanctioned-legality Check goes red on a fixture card illegal in that Format.",
+      "expected_output": "The committed Casual 60 fixtures byte for byte — the built Suite (generated targets plus recorded Role tags), the ManaBox-importable Deck Block, the all-green report, and the assembled Review Block — plus a Standard Suite over the legality-flawed fixture Deck whose banlist Check reports red naming the illegal card, all through the unmodified generator, runner, and assembler.",
+      "files": [
+        "skills/build/profiles/casual-60.yaml",
+        "skills/build/profiles/standard.yaml",
+        "skills/build/profiles/modern.yaml",
+        "skills/build/profiles/pioneer.yaml",
+        "skills/build/scripts/generate_suite.py",
+        "skills/suite-runner/scripts/check_deck.py",
+        "skills/review/scripts/assemble_review.py",
+        "skills/review/SKILL.md",
+        "evals/fixtures/briefs/casual60-kitchen-stampede.txt",
+        "evals/fixtures/briefs/standard-ember-stampede.txt",
+        "evals/fixtures/collections/synthetic-standard-pool.csv",
+        "evals/fixtures/decks/kitchen-stampede.txt",
+        "evals/fixtures/decks/ember-stampede-flawed.txt",
+        "evals/fixtures/build/kitchen-stampede.built.suite.yaml",
+        "evals/fixtures/build/kitchen-stampede-built-report.txt",
+        "evals/fixtures/review/kitchen-stampede.standards-findings.json",
+        "evals/fixtures/review/kitchen-stampede.brief-findings.json",
+        "evals/fixtures/review/kitchen-stampede.review.txt",
+        "evals/fixtures/scryfall/oracle.jsonl",
+        "evals/fixtures/manifest.json"
+      ],
+      "expectations": [
+        "The Casual 60 Format profile is first-class declarative data: deck size 60, a four-copy limit, lands, curve, and consistency check targets, quotas over the global Role vocabulary, and no banlist parameter and no Centerpiece demand — the kitchen table needs neither.",
+        "The thin sanctioned profiles — Standard, Modern, Pioneer — are the Casual 60 profile plus exactly their banlist parameter naming the Oracle legalities key the banlist Check reads per card: no other target differs, and no profile carries a hand-maintained banlist.",
+        "Power reads through the four 60-card profiles as one shared 1-5 ladder authored as data — 1 jank to 5 competitive — and a Brief with no power: line generates a Suite at the default, power 2.",
+        "The four 60-card Formats share one review-standards list: the review_standards sections of casual-60, standard, modern, and pioneer are byte-identical, authored data the Standards axis reads on top of the Smell baseline.",
+        "Run over the fixture Casual 60 Brief, the casual-60 profile, and the fixture Oracle, the Suite generator reproduces the committed built Suite up to its recorded Role tags — no target bent — and the unmodified runner reports the committed Casual 60 Deck all green byte-identical, exit green.",
+        "The committed Casual 60 Review reassembles byte-identical through the unmodified assembler: the recorded axis Findings in, the committed Review Block out, its Verdicts computed, never re-judged.",
+        "Through the unmodified runner, the sanctioned-legality Check reads the Oracle's per-card legalities: red on the legality-flawed Standard fixture Deck naming the card the Oracle marks not standard-legal, green over the all-legal Casual 60 Deck under the same Standard Suite.",
+        "Run live, /tutor:build walks the Casual 60 Brief from generated Suite to green through the same fixed scripts, and /tutor:review fans out the two axes with the shared 60-card review standards read from the Format profile."
+      ]
     }
   ]
 }

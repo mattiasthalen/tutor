@@ -117,3 +117,23 @@ mean for prompt-ware.
   fixture Pack builds green from the Kitchen 20 pool, and a planted second
   rare, multicolor card, and off-profile nonbasic each go red on their own
   packet Check. (#57)
+- 60-card Formats: Casual 60 plus thin sanctioned Standard, Modern, and
+  Pioneer as first-class data profiles — deck size 60, four-copy limit,
+  lands/curve/consistency targets, and 60-card Role quotas, with the
+  sanctioned three being Casual 60 plus exactly a banlist parameter whose
+  legality the existing banlist Check reads per card from the Oracle's
+  legalities (no hand-maintained banlists; rotation arrives by regenerating
+  the Oracle). All four share one `power_ladder:` reading of the 1–5 Power
+  ladder (1 jank … 5 competitive, unstated Power defaulting to 2) and one
+  `review_standards:` list — playset discipline, interaction mismatch
+  (overriding the baseline Smell for the duel), top-end restraint — kept
+  byte-identical across the four profiles by test. The runner and generator
+  are unchanged for the Format beyond two parameter-driven touches: the
+  singleton Check's green detail now reports the Suite's own copy limit, and
+  the generator's named-identity table gains the five `mono-<color>` words
+  the fixture Briefs already used. A Casual 60 fixture (Kitchen Stampede,
+  the Standard-shaped pool at the kitchen table) builds and reviews end to
+  end as committed byte-reproducible artifacts, and a legality-flawed
+  Standard fixture Deck proves the sanctioned-legality Check goes red naming
+  the illegal card; the `formats-60` offline eval case grades the whole
+  seam. (#58)

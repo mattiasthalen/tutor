@@ -47,6 +47,7 @@ CASE_NAMES = {
     6: "build-deep",
     7: "upgrade-deep",
     8: "kitchen20-vertical",
+    9: "formats-60",
 }
 
 
@@ -912,7 +913,10 @@ def run_build_cli(script, *args):
 def section_lines(text, section):
     """The stripped non-comment lines of one top-level section of a
     YAML-subset file — the harness's own flat read, deliberately independent
-    of the runner's parser."""
+    of the runner's parser. tests/test_sixty_card_formats.py's section_slice
+    carries the same section walk over the raw byte surface — grader
+    independence, never imported, kept in lockstep by hand. Edit them
+    together."""
     lines, inside = [], False
     for line in text.splitlines():
         if not line.strip():
@@ -2158,6 +2162,265 @@ def check_kitchen20_review_standards(ctx):
 # Keys are pinned verbatim to the strings in evals.json; editing a wording
 # means editing both, deliberately. Unregistered expectations are soft.
 
+# --- 60-card Formats predicates (issue #58) ---------------------------------
+# The formats-60 case grades the vertical's deterministic seams: the four
+# 60-card Format profiles as data, the generator over the fixture Casual 60
+# Brief, the unmodified runner over the committed Casual 60 Deck and the
+# legality-flawed Standard Deck, and the assembler over the committed Review
+# fixtures. Live skill runs stay soft, dev-time judged.
+
+PROFILES_DIR = REPO_ROOT / "skills" / "build" / "profiles"
+SIXTY_CARD_PROFILES = {
+    "casual-60": "casual 60", "standard": "standard",
+    "modern": "modern", "pioneer": "pioneer",
+}
+SANCTIONED_SLUGS = ("standard", "modern", "pioneer")
+CASUAL_BRIEF_REL = "briefs/casual60-kitchen-stampede.txt"
+CASUAL_SUITE_REL = "build/kitchen-stampede.built.suite.yaml"
+CASUAL_DECK_REL = "decks/kitchen-stampede.txt"
+CASUAL_REPORT_REL = "build/kitchen-stampede-built-report.txt"
+STANDARD_POOL_REL = "collections/synthetic-standard-pool.csv"
+FLAWED_STANDARD_DECK_REL = "decks/ember-stampede-flawed.txt"
+REVIEW_ASSEMBLER_SCRIPT = REPO_ROOT / "skills" / "review" / "scripts" / "assemble_review.py"
+
+
+def profile_text(slug):
+    return (PROFILES_DIR / f"{slug}.yaml").read_text(encoding="utf-8")
+
+
+def profile_check_ids(text):
+    return re.findall(r"^  - id: (\S+)$", text, re.MULTILINE)
+
+
+def check_casual60_profile(_ctx):
+    text = profile_text("casual-60")
+    problems = []
+    profile = section_lines(text, "profile")
+    for needle in ("deck_size: 60", "copy_limit_nonland: 4"):
+        if needle not in profile:
+            problems.append(f"profile lacks {needle!r}")
+    for target in ("lands_min", "lands_max", "curve_avg_max",
+                   "early_nonland_cmc2_min", "p_2plus_lands_in_7_min"):
+        if not any(l.startswith(f"{target}:") for l in profile):
+            problems.append(f"no {target} check target")
+    if any(l.startswith("banlist_key:") for l in profile):
+        problems.append("Casual 60 carries a banlist parameter — the kitchen table has none")
+    if "legality.banlist" in profile_check_ids(text):
+        problems.append("Casual 60 lists a banlist Check")
+    if "centerpiece: required" in text:
+        problems.append("Casual 60 demands a Centerpiece")
+    quota_tags = {l.split(":", 1)[0] for l in section_lines(text, "quotas")}
+    if not quota_tags:
+        problems.append("no Role quotas authored")
+    if not quota_tags <= ROLE_VOCABULARY:
+        problems.append(f"quota tags outside the Role vocabulary: {sorted(quota_tags - ROLE_VOCABULARY)}")
+    return not problems, "; ".join(problems) or (
+        "deck size 60, four-copy limit, five check targets, quotas "
+        f"{sorted(quota_tags)}, no banlist, no Centerpiece demand — all data"
+    )
+
+
+def check_sanctioned_profiles_thin(_ctx):
+    casual = profile_text("casual-60")
+    casual_profile = section_lines(casual, "profile")
+    casual_ids = profile_check_ids(casual)
+    problems, evidence = [], []
+    for slug in SANCTIONED_SLUGS:
+        fmt = SIXTY_CARD_PROFILES[slug]
+        text = profile_text(slug)
+        if f"format: {fmt}" not in text.splitlines():
+            problems.append(f"{slug}: no 'format: {fmt}' line")
+        expected = casual_profile + [f"banlist_key: {fmt}"]
+        if section_lines(text, "profile") != expected:
+            problems.append(f"{slug}: profile targets differ beyond the banlist parameter")
+        ids = profile_check_ids(text)
+        if "legality.banlist" not in ids:
+            problems.append(f"{slug}: no banlist Check reads the parameter")
+        if [i for i in ids if i != "legality.banlist"] != casual_ids:
+            problems.append(f"{slug}: check list differs beyond the banlist Check")
+        for section in ("quotas", "power_ladder", "role_guidance", "review_standards"):
+            if section_lines(text, section) != section_lines(casual, section):
+                problems.append(f"{slug}: {section} differs from Casual 60")
+        evidence.append(f"{slug}=+banlist_key: {fmt}")
+    hand_banned = [
+        f"{slug}: {line.strip()}"
+        for slug in SIXTY_CARD_PROFILES
+        for line in profile_text(slug).splitlines()
+        if line.strip() and not line.strip().startswith("#")
+        and "ban" in line.lower()
+        and not line.strip().startswith("banlist_key:")
+        and "{banlist_key}" not in line and "legality.banlist" not in line
+    ]
+    if hand_banned:
+        problems.append(f"ban-shaped data beyond the parameter: {hand_banned}")
+    return not problems, "; ".join(problems) or (
+        "thin sanctioned profiles: " + ", ".join(evidence) + "; no hand-maintained banlist"
+    )
+
+
+def check_power_ladder_data(ctx):
+    problems = []
+    reference = section_lines(profile_text("casual-60"), "power_ladder")
+    rungs = {l.split(":", 1)[0]: l.split(":", 1)[1] for l in reference if ":" in l}
+    if sorted(rungs) != ["1", "2", "3", "4", "5"]:
+        problems.append(f"the ladder's rungs are {sorted(rungs)}, not 1-5")
+    if "jank" not in rungs.get("1", "").lower():
+        problems.append("rung 1 never says jank")
+    if "competitive" not in rungs.get("5", "").lower():
+        problems.append("rung 5 never says competitive")
+    for slug in SANCTIONED_SLUGS:
+        if section_lines(profile_text(slug), "power_ladder") != reference:
+            problems.append(f"{slug}: power ladder differs — not one shared reading")
+    generated = run_build_cli(
+        BUILD_GENERATOR,
+        "--brief", ctx.path(CASUAL_BRIEF_REL),
+        "--profile", PROFILES_DIR / "casual-60.yaml",
+        "--oracle", ctx.path("scryfall/oracle.jsonl"),
+        "--date", BUILD_REFERENCE_DATE,
+    )
+    if generated.returncode != 0:
+        problems.append(f"generate_suite.py failed: {generated.stderr.strip()[:120]}")
+    elif "brief: casual 60 — power 2\n" not in generated.stdout:
+        problems.append("a Brief with no power: line does not default to power 2")
+    return not problems, "; ".join(problems) or (
+        "one shared 1-5 ladder, jank at 1, competitive at 5; the Casual 60 "
+        "fixture Brief generates at the power-2 default"
+    )
+
+
+def check_shared_review_standards(_ctx):
+    reference = section_lines(profile_text("casual-60"), "review_standards")
+    problems = []
+    if not reference:
+        problems.append("casual-60 authors no review standards")
+    if any(not l.partition(":")[2].strip() for l in reference):
+        problems.append("a review standard carries no guidance text")
+    for slug in SANCTIONED_SLUGS:
+        if section_lines(profile_text(slug), "review_standards") != reference:
+            problems.append(f"{slug}: review_standards differ — not one shared list")
+    skill = REVIEW_SKILL_PATH.read_text(encoding="utf-8")
+    if "review_standards" not in skill:
+        problems.append("the review skill never reads the profile's review_standards")
+    named = sorted(l.split(":", 1)[0] for l in reference)
+    return not problems, "; ".join(problems) or (
+        f"one list — {', '.join(named)} — byte-identical across the four "
+        "60-card profiles, read by the Standards axis"
+    )
+
+
+def check_casual60_builds(ctx):
+    generated = run_build_cli(
+        BUILD_GENERATOR,
+        "--brief", ctx.path(CASUAL_BRIEF_REL),
+        "--profile", PROFILES_DIR / "casual-60.yaml",
+        "--oracle", ctx.path("scryfall/oracle.jsonl"),
+        "--date", BUILD_REFERENCE_DATE,
+    )
+    if generated.returncode != 0:
+        return False, f"generate_suite.py failed: {generated.stderr.strip()[:200]}"
+    without_roles, role_lines, in_roles = [], [], False
+    for line in ctx.path(CASUAL_SUITE_REL).read_text(encoding="utf-8").splitlines(True):
+        if not line.startswith(" ") and line.strip():
+            in_roles = line.rstrip() == "roles:"
+        if in_roles and line.startswith("  ") and not line.lstrip().startswith("#"):
+            role_lines.append(line)
+            continue
+        without_roles.append(line)
+    problems = []
+    if "".join(without_roles) != generated.stdout:
+        problems.append("the built Suite differs beyond its roles: section — a target was bent")
+    if not role_lines:
+        problems.append("no Role judgment recorded in the roles: section")
+    run = run_build_cli(
+        SUITE_RUNNER,
+        "--suite", ctx.path(CASUAL_SUITE_REL),
+        "--deck", ctx.path(CASUAL_DECK_REL),
+        "--oracle", ctx.path("scryfall/oracle.jsonl"),
+        "--collection", ctx.path(STANDARD_POOL_REL),
+        "--date", BUILD_REFERENCE_DATE,
+    )
+    if run.returncode != 0:
+        problems.append(f"runner exit {run.returncode}, green is 0")
+    if run.stdout != ctx.path(CASUAL_REPORT_REL).read_text(encoding="utf-8"):
+        problems.append("report differs from the committed all-green reference")
+    return not problems, "; ".join(problems) or (
+        f"Suite regenerates with {len(role_lines)} Role tags the only diff; "
+        "the committed Deck reports all green byte-identical"
+    )
+
+
+def check_casual60_reviews(ctx):
+    result = run_build_cli(
+        REVIEW_ASSEMBLER_SCRIPT,
+        "--deck-name", "Kitchen Stampede",
+        "--standards", ctx.path("review/kitchen-stampede.standards-findings.json"),
+        "--brief", ctx.path("review/kitchen-stampede.brief-findings.json"),
+        "--date", BUILD_REFERENCE_DATE,
+    )
+    problems = []
+    if result.returncode != 0:
+        problems.append(f"assembler exit {result.returncode}: {result.stderr.strip()[:120]}")
+    committed = ctx.path("review/kitchen-stampede.review.txt").read_text(encoding="utf-8")
+    if result.stdout != committed:
+        problems.append("Review Block differs from the committed reference")
+    for needle in ("verdict: playable", "standards: playable", "brief: playable"):
+        if needle not in committed:
+            problems.append(f"committed Review Block lacks {needle!r}")
+    return not problems, "; ".join(problems) or (
+        "the committed Findings reassemble byte-identical, Verdicts computed: "
+        "playable on both axes, playable overall"
+    )
+
+
+def check_sanctioned_legality_red(ctx):
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        suite = pathlib.Path(tmp) / "standard.suite.yaml"
+        generated = run_build_cli(
+            BUILD_GENERATOR,
+            "--brief", ctx.path("briefs/standard-ember-stampede.txt"),
+            "--profile", PROFILES_DIR / "standard.yaml",
+            "--oracle", ctx.path("scryfall/oracle.jsonl"),
+            "--date", BUILD_REFERENCE_DATE,
+            "--out", suite,
+        )
+        if generated.returncode != 0:
+            return False, f"generate_suite.py failed: {generated.stderr.strip()[:200]}"
+
+        def run_deck(deck_rel):
+            return run_build_cli(
+                SUITE_RUNNER, "--suite", suite,
+                "--deck", ctx.path(deck_rel),
+                "--oracle", ctx.path("scryfall/oracle.jsonl"),
+                "--collection", ctx.path(STANDARD_POOL_REL),
+                "--date", BUILD_REFERENCE_DATE,
+            )
+
+        flawed = run_deck(FLAWED_STANDARD_DECK_REL)
+        clean = run_deck(CASUAL_DECK_REL)
+    problems = []
+    if flawed.returncode != 1:
+        problems.append(f"flawed Deck exit {flawed.returncode}, red is 1")
+    if report_colors(flawed.stdout).get("legality.banlist") != "red":
+        problems.append("legality.banlist is not red on the flawed Deck")
+    if "not legal in standard: Brotherhood's End (not_legal)" not in flawed.stdout:
+        problems.append("the red detail never names the illegal card from the Oracle's legalities")
+    if report_colors(clean.stdout).get("legality.banlist") != "green":
+        problems.append("legality.banlist is not green over the all-legal Deck")
+    if "every card legal in standard" not in clean.stdout:
+        problems.append("the green detail never says every card is legal in standard")
+    return not problems, "; ".join(problems) or (
+        "the same Standard Suite through the unmodified runner: banlist red "
+        "naming Brotherhood's End (not_legal), green over the all-legal Deck"
+    )
+
+
+# --- Registry: exact expectation text -> fixed predicate --------------------
+# Keys are pinned verbatim to the strings in evals.json; editing a wording
+# means editing both, deliberately. Unregistered expectations are soft.
+
+
 EXPECTATION_CHECKS = {
     "The realism fixture collections/real-collection.csv parses header-keyed as CSV with exactly 577 data rows.":
         check_realism_row_count,
@@ -2283,9 +2546,25 @@ EXPECTATION_CHECKS = {
         check_kitchen20_pack_green,
     "Through the unmodified runner, each planted packet violation goes red on its own Check — the second rare on legality.rare_count, the multicolor card on legality.mono_color, the off-profile nonbasic on legality.nonbasic_lands, the non-evergreen keyword on legality.evergreen, the 21st card on legality.size — byte-identical to the committed reference, exit code red.":
         check_kitchen20_pack_flawed_red,
+    "The Casual 60 Format profile is first-class declarative data: deck size 60, a four-copy limit, lands, curve, and consistency check targets, quotas over the global Role vocabulary, and no banlist parameter and no Centerpiece demand — the kitchen table needs neither.":
+        check_casual60_profile,
+    "The thin sanctioned profiles — Standard, Modern, Pioneer — are the Casual 60 profile plus exactly their banlist parameter naming the Oracle legalities key the banlist Check reads per card: no other target differs, and no profile carries a hand-maintained banlist.":
+        check_sanctioned_profiles_thin,
+    "Power reads through the four 60-card profiles as one shared 1-5 ladder authored as data — 1 jank to 5 competitive — and a Brief with no power: line generates a Suite at the default, power 2.":
+        check_power_ladder_data,
+    "The four 60-card Formats share one review-standards list: the review_standards sections of casual-60, standard, modern, and pioneer are byte-identical, authored data the Standards axis reads on top of the Smell baseline.":
+        check_shared_review_standards,
+    "Run over the fixture Casual 60 Brief, the casual-60 profile, and the fixture Oracle, the Suite generator reproduces the committed built Suite up to its recorded Role tags — no target bent — and the unmodified runner reports the committed Casual 60 Deck all green byte-identical, exit green.":
+        check_casual60_builds,
+    "The committed Casual 60 Review reassembles byte-identical through the unmodified assembler: the recorded axis Findings in, the committed Review Block out, its Verdicts computed, never re-judged.":
+        check_casual60_reviews,
+    "Through the unmodified runner, the sanctioned-legality Check reads the Oracle's per-card legalities: red on the legality-flawed Standard fixture Deck naming the card the Oracle marks not standard-legal, green over the all-legal Casual 60 Deck under the same Standard Suite.":
+        check_sanctioned_legality_red,
     "The Kitchen 20 profile authors the per-Format review standards from the recorded seeds — pack-combining quality, teaching pilotability, rare-as-payoff — as data the Standards axis reads, and pack-combining quality stays review guidance, not a Check: no generated or templated Check id covers Pack combining.":
         check_kitchen20_review_standards,
 }
+
+
 
 
 # --- Runner -----------------------------------------------------------------
