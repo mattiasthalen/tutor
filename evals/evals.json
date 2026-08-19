@@ -187,6 +187,33 @@
         "The build skill's text pins the back half: the loop through the fixed runner with targets never bent, contention consulted and declined contention reported out loud, the honest red ending with the human's three options, the shipped Deck Block with the Fan Content footer and the informational-only legality caveat, the Maybeboard wishlist, and closing instructions naming the Blocks Review needs.",
         "The built Deck honors the Brief's intent: lands matter, steady card draw, nothing above 6 mana, no infinite combos, at bracket-2 power."
       ]
+    },
+    {
+      "id": 7,
+      "prompt": "Upgrade the Tatyova Landfall Deck in a Collection home: the human imported the shipped Deck Block into ManaBox and synced a fresh Export — its rows now committed to Tatyova Landfall — and asks for a Build re-run with the existing Deck, Suite, and Brief from the deck library, the Review Block's Findings as the work list. Prove the Upgrade is an ordinary Build re-run: nothing regenerates, and the rebuilt Deck's own copies are freed automatically.",
+      "expected_output": "The committed built fixtures untouched: the byte-identical Suite re-run through the unmodified runner reproduces the committed all-green report against the fresh Export, every copy the Deck needs is free with no donor: line naming the Deck itself, declined contention stays honest for every other Deck, and the build skill pins the Upgrade contract — no fourth deck verb.",
+      "files": [
+        "skills/build/SKILL.md",
+        "commands/build.md",
+        "skills/build/scripts/availability.py",
+        "skills/build/scripts/ship_deck.py",
+        "skills/suite-runner/scripts/check_deck.py",
+        "skills/review/SKILL.md",
+        "evals/fixtures/build/tatyova-upgrade.brief.txt",
+        "evals/fixtures/build/tatyova-landfall.built.suite.yaml",
+        "evals/fixtures/build/tatyova-built-deck.txt",
+        "evals/fixtures/build/tatyova-built-report.txt",
+        "evals/fixtures/scryfall/oracle.jsonl",
+        "evals/fixtures/collections/real-collection.csv"
+      ],
+      "expectations": [
+        "A Build re-run given an existing Deck frees that Deck's own copies automatically: against a fresh Export whose deck rows commit the shipped Block's cards to the ManaBox deck its title names, contention-aware availability reports every copy free — no donor: line names the Deck itself.",
+        "The byte-identical Suite artifact re-runs against the fresh Export through the unmodified runner: nothing regenerates, the committed built Suite's bytes stay untouched, and the committed all-green report is reproduced byte-identical — the rebuilt Deck never contends with itself.",
+        "Nothing already tagged is re-tagged: the built Suite's roles: section already covers every Deck card outside the Maybeboard, so only cards new to the pool would need fresh Role tagging at an Upgrade.",
+        "Contention stays real at an Upgrade: against the fresh Export, a want whose copies sit in a Deck neither donor-named nor the Deck itself still declines in the honest sentence.",
+        "The build skill's text pins the Upgrade contract: an ordinary Build re-run with a fresh Export and the existing Deck — no fourth deck verb; the existing Suite re-run as-is, never regenerated; the rebuilt Deck's own copies freed automatically; a Review Block consumed as the work list on a playable or rebuild Verdict; and the deck library treated as a growing library whose artifacts an Upgrade updates in place.",
+        "Run live, /tutor:build recognizes an Upgrade from the existing Deck's artifacts in the deck library, re-runs the Suite as-is, tags only cards new to the pool, and consumes the Review Block's Findings as its work list — the revision loop stays manual, the human re-running Build after reading the Review."
+      ]
     }
   ]
 }

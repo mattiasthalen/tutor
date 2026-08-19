@@ -11,8 +11,11 @@ reserves the four Board headers):
 - each nonbasic pinned to the exact owned printing — set code and collector
   number from the Export — drawn only from the copies actually free under
   the collection-contention arithmetic (``availability.py``, same skill):
-  deck-row copies are committed by default and only the Brief's ``donor:``
-  lines free them (``donor: all`` frees everything). Among the free copies
+  deck-row copies are committed by default and the Brief's ``donor:`` lines
+  free them (``donor: all`` frees everything), while rows committed to the
+  ManaBox deck the Block's own title names — the rebuilt Deck itself — are
+  freed automatically, no ``donor:`` line needed, so an Upgrade re-ship
+  never contends with the Deck it rebuilds (issue #56). Among the free copies
   the fancier print wins (Scryfall's finishes ladder: etched over foil over
   normal; ties break on set code then collector number), spilling across
   printings only as free counts allow, so physical assembly matches the list
@@ -252,6 +255,12 @@ def merge_entries(entries):
 def ship(text, printings, oracle_names, oracle_basics, donors=()):
     known = set(printings) | oracle_names
     title, boards = parse_deck(text, known)
+    # The rebuilt Deck never contends with itself (issue #56): the Block's
+    # title is the ManaBox deck name its import creates, so Export rows
+    # committed to that name are the Deck's own copies — freed for pinning
+    # automatically, no donor: line needed. An Upgrade re-ship against the
+    # fresh Export stays the identity on its own output.
+    donors = (*donors, title)
 
     def is_basic(name):
         if name in oracle_names:

@@ -3,11 +3,15 @@
 
 The Deck draws only from the Collection, and copies in existing Decks are
 committed by default: an Export row with Binder Type ``deck`` belongs to the
-Deck named by its Binder Name, and only the Brief's ``donor:`` lines free
-those copies (``donor: all`` frees everything). This script does the
-judgment-free arithmetic of that rule while Build chooses cards: how many
-copies of a name are free, and — when a want cannot be met — the honest
-declined-contention sentence Build must report:
+Deck named by its Binder Name, and the Brief's ``donor:`` lines free those
+copies (``donor: all`` frees everything). One Deck is freed without any
+``donor:`` line: the Deck being built itself — rows committed to the ManaBox
+deck carrying the Brief's ``name:`` (or the Deck Block's title) are the
+rebuilt Deck's own copies, freed automatically so an Upgrade — an ordinary
+Build re-run against a fresh Export — never contends with itself (issue
+#56). This script does the judgment-free arithmetic of those rules while
+Build chooses cards: how many copies of a name are free, and — when a want
+cannot be met — the honest declined-contention sentence Build must report:
 
     wanted Rhystic Study; all copies committed to Tatyova
 
@@ -22,7 +26,8 @@ Usage:
                     [--brief BRIEF | --donor NAME ...]
                     (--want "Card Name" [--want ...] | --deck DECK_BLOCK)
 
-``--brief`` reads the Brief Block's ``donor:`` lines; ``--donor`` names one
+``--brief`` reads the Brief Block's ``donor:`` lines and its ``name:`` line
+(the Deck being built — freed automatically); ``--donor`` names one
 directly (repeatable; ``--donor all`` frees the whole Collection). With
 ``--want``, each name is checked for one free copy (repeat a name to want
 more). With ``--deck``, every card the Deck Block asks for is checked at its
@@ -106,6 +111,23 @@ def donors_from_brief(path):
     return donors
 
 
+def name_from_brief(path):
+    """The Brief's name: line — the Deck this Build builds — or None.
+
+    Export rows committed to a ManaBox deck carrying this name are the
+    rebuilt Deck's own copies: an Upgrade re-run frees them automatically,
+    no donor: line needed (issue #56)."""
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError as exc:
+        unusable(f"cannot read the Brief: {exc}")
+    for line in text.splitlines():
+        key, sep, value = line.partition(":")
+        if sep and key.strip() == "name" and value.strip():
+            return value.strip()
+    return None
+
+
 BOARD_HEADERS = ("Commander", "Mainboard", "Sideboard", "Maybeboard")
 # Deck-line grammar: the same PIN/LUMP regexes and raw-first reading order as
 # the fixed runner's (check_deck.py) — a printing pin is "(SET) number" at the
@@ -119,7 +141,12 @@ LUMP = re.compile(r"^(\d+)\s+([^(]+)$")
 
 
 def deck_wants(path, owned):
-    """{name: count} the Deck Block asks for, Maybeboard excluded.
+    """({name: count} the Deck Block asks for, the Block's title or None) —
+    the Maybeboard excluded from the counts.
+
+    The title is the ManaBox deck name an import of this Block creates —
+    the rebuilt Deck's own name, read the same way as the fixed runner's
+    parse_deck: the first ``//`` comment that is not a Board header.
 
     A bare line holding " // " is ambiguous — a multi-faced name or an inline
     comment. The Collection settles it: the whole remainder wins when it names
@@ -129,7 +156,7 @@ def deck_wants(path, owned):
         text = open(path, encoding="utf-8").read()
     except OSError as exc:
         unusable(f"cannot read the Deck Block: {exc}")
-    wants, board = {}, None
+    wants, board, title = {}, None, None
     for raw in text.splitlines():
         line = raw.strip()
         if not line:
@@ -138,6 +165,8 @@ def deck_wants(path, owned):
             head = line[2:].strip()
             if head in BOARD_HEADERS:
                 board = head
+            elif title is None:
+                title = head
             continue
         if board == "Maybeboard":  # the wishlist Board: may be unowned
             continue
@@ -155,7 +184,7 @@ def deck_wants(path, owned):
                     continue
                 qty, name = int(m.group(1)), m.group(2).strip()
         wants[name] = wants.get(name, 0) + qty
-    return wants
+    return wants, title
 
 
 def free_copies(name, owned, committed, donors):
@@ -200,20 +229,31 @@ def main():
         ap.error("nothing to check: pass --want NAME (repeatable) or --deck FILE")
 
     owned, committed = load_pool(args.collection)
-    donors = list(args.donor)
+    # The freed Decks: the Brief's donor: lines (and --donor), plus — issue
+    # #56, no line needed — the Deck being built itself, named by the Brief's
+    # name: line or the Deck Block's title. An Upgrade is an ordinary Build
+    # re-run: the rebuilt Deck's own copies are freed automatically, so it
+    # never contends with itself.
+    freed = list(args.donor)
     if args.brief:
-        donors += donors_from_brief(args.brief)
+        freed += donors_from_brief(args.brief)
+        rebuilt = name_from_brief(args.brief)
+        if rebuilt:
+            freed.append(rebuilt)
 
     need = {}
     for name in args.want:
         need[name] = need.get(name, 0) + 1
     if args.deck:
-        for name, count in deck_wants(args.deck, owned).items():
+        wants, title = deck_wants(args.deck, owned)
+        if title:
+            freed.append(title)
+        for name, count in wants.items():
             need[name] = need.get(name, 0) + count
 
     declined = 0
     for name, count in need.items():
-        ok, sentence = report_want(name, count, owned, committed, donors)
+        ok, sentence = report_want(name, count, owned, committed, freed)
         declined += 0 if ok else 1
         print(sentence)
 

@@ -1,6 +1,6 @@
 ---
 name: build
-description: Runs a Build from a settled Brief to a shipped Deck — generates the Suite (every deterministic Check the Deck must pass) before any card is picked, shows it honestly red on the empty Deck, then adds and swaps owned cards until the Suite is green (or ends red with an honest report), shipping a ManaBox-importable Deck Block to the Collection home. Use when the user runs /tutor:build, has a settled Brief and wants the deck built, or asks what a deck must pass.
+description: Runs a Build from a settled Brief to a shipped Deck — generates the Suite (every deterministic Check the Deck must pass) before any card is picked, shows it honestly red on the empty Deck, then adds and swaps owned cards until the Suite is green (or ends red with an honest report), shipping a ManaBox-importable Deck Block to the Collection home. An Upgrade is this same Build re-run with a fresh Export and the existing Deck. Use when the user runs /tutor:build, has a settled Brief and wants the deck built, wants an existing deck upgraded or rebuilt after a Review, or asks what a deck must pass.
 metadata:
   version: 0.1.0
 ---
@@ -13,13 +13,16 @@ TDD for decks (ADR 0003, amended by ADR 0005): at Build start the Suite — ever
 
 1. The Collection home is the working directory. The Brief lives at `decks/<slug>.brief.txt` — with several, ask which; with none, hand off to `/tutor:brief` first. A pasted Export or Block always beats the file on conflict: report the diff, write the paste to the file's place (or a temp file), and work from it.
 2. The Export is `collection.csv`, the Oracle `oracle.jsonl`. When the Oracle is absent and network allows, offer to generate it on the spot via `/tutor:oracle` — one question, then move on. Declined or offline, generation still works from the Brief's `identity:` line, but the Suite can only be walked as a checklist (`--render-checklist`), every verdict flagged best-effort — say so rather than skipping Checks.
-3. An Upgrade — rebuilding an existing Deck against a fresh Export — is this same Build with the target Deck's own copies freed: make sure the working Brief carries a `donor:` line naming the Deck's ManaBox name (add it with the human if missing), then proceed as any Build.
+3. An Upgrade — rebuilding an existing Deck against a fresh Export — is an ordinary Build re-run, no fourth deck verb. The Deck's own copies — Export rows committed to the ManaBox deck its import created, named by the Deck Block's title and the Brief's `name:` — are freed automatically by the availability arithmetic, so the rebuilt Deck never contends with itself; no `donor:` line ever names the Deck itself. `donor:` lines stay what they were: the Brief naming *other* Decks as fair game. The deck library (`decks/`) is a growing library, never a scratch directory: an Upgrade reads the existing Deck's artifacts — Brief, Suite, Deck Block, report, Review — and updates them in place, same slug, same files.
+4. Build accepts a Review Block as input (`decks/<slug>.review.txt`, or pasted), honoring the Verdict-dependent handoff: `playable` and `rebuild` re-runs consume it — its Findings and their suggestions are the loop's work list against the same Brief and Suite — while `ship` leaves nothing to consume. The revision loop is manual: the human reads the Review and re-runs Build; nothing loops back into Review automatically.
 
 ## Pick the Format profile
 
 A Format is a first-class data profile: `${CLAUDE_PLUGIN_ROOT}/skills/build/profiles/<format-slug>.yaml`, slugged from the Brief's `format:` (lowercase, spaces to hyphens). Commander ships as `profiles/commander.yaml`; a Brief whose Format has no profile file yet stops here honestly — name the profiles that exist, never improvise targets.
 
 ## Generate the Suite — data, never code
+
+On an Upgrade the Suite already exists and re-runs as-is: never regenerate `decks/<slug>.suite.yaml` — the byte-identical Suite runs against the fresh Export, and only cards new to the pool need fresh Role tagging, recorded in `roles:` as they are picked like any Build. Only a changed Brief regenerates the Suite, and re-settling the Brief goes through `/tutor:brief` first. A first Build generates:
 
 1. Run the generator:
 
@@ -50,7 +53,7 @@ A Format is a first-class data profile: `${CLAUDE_PLUGIN_ROOT}/skills/build/prof
 
 ## Loop: fill the Deck until the Suite is green
 
-1. Pick owned cards toward the reddest Checks first — quotas, curve, lands — honoring the Brief's `notes:` (fuzzy intent is built toward here even though only Review judges it). The Deck draws only from the Collection: copies in existing Decks are committed by default and only the Brief's `donor:` lines free them. Before adding a card, confirm a copy is free:
+1. Pick owned cards toward the reddest Checks first — quotas, curve, lands — honoring the Brief's `notes:` (fuzzy intent is built toward here even though only Review judges it). The Deck draws only from the Collection: copies in existing Decks are committed by default; the Brief's `donor:` lines free them, and the Deck being built frees its own committed copies automatically (an Upgrade never contends with itself). Before adding a card, confirm a copy is free:
 
    ```sh
    python3 "${CLAUDE_PLUGIN_ROOT}/skills/build/scripts/availability.py" \
@@ -74,7 +77,7 @@ A Format is a first-class data profile: `${CLAUDE_PLUGIN_ROOT}/skills/build/prof
      --oracle oracle.jsonl --out decks/<slug>.deck.txt
    ```
 
-   The shipped Block is text ManaBox actually imports: first line `// <name>`; Board headers only for the Boards the Format uses; every nonbasic pinned to the exact owned printing — set code and collector number, the fancier owned print chosen when several exist, drawn only from the copies the Brief's `donor:` lines leave free (the same contention arithmetic the loop consulted — a copy committed to another Deck is never pinned, so physical assembly never raids one); optional inline `// category` comments; basics lumped per name, last in each Board after a blank line; and the short-form Fan Content footer line. Unowned upgrade ideas worth a future slot go on the Maybeboard — the wishlist Board, unpinned and allowed to be unowned, the one place the collection-only rule bends.
+   The shipped Block is text ManaBox actually imports: first line `// <name>`; Board headers only for the Boards the Format uses; every nonbasic pinned to the exact owned printing — set code and collector number, the fancier owned print chosen when several exist, drawn only from the copies the contention arithmetic leaves free — the Brief's `donor:` lines plus the Deck's own automatically freed copies (the same arithmetic the loop consulted: a copy committed to another Deck is never pinned, so physical assembly never raids one); optional inline `// category` comments; basics lumped per name, last in each Board after a blank line; and the short-form Fan Content footer line. Unowned upgrade ideas worth a future slot go on the Maybeboard — the wishlist Board, unpinned and allowed to be unowned, the one place the collection-only rule bends.
 2. Re-run the runner once over the shipped file and write the final report to `decks/<slug>.suite-report.txt` — the Suite re-runs through the fixed runner, byte-stable, so the report proves the shipped bytes.
 
 ## Close: green or honestly red

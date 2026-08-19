@@ -78,3 +78,19 @@ mean for prompt-ware.
   Collection-only drawing, Format legality, the ManaBox-importable Block,
   the round-trip, targets never bent — with the Brief's-intent grader kept
   soft, and a paste-shaped Export case as parser-tolerance smoke. (#54)
+- Upgrade path: an Upgrade is an ordinary Build re-run with a fresh Export
+  and the existing Deck — no fourth deck verb. The rebuilt Deck's own copies
+  are freed automatically at every seam — the availability helper (via the
+  Brief's `name:` line and the Deck Block's title), printing pins at ship,
+  and the runner's availability Check (the Deck under check is never held
+  against itself) — so the Deck never contends with itself and no `donor:`
+  line ever names it; every other Deck's contention stays honestly declined.
+  The byte-identical Suite re-runs as-is against the fresh Export (only
+  cards new to the pool need fresh Role tagging), Build accepts a Review
+  Block as input on a `playable`/`rebuild` Verdict — its Findings the
+  work list, the revision loop staying manual — and the deck library is a
+  growing library whose artifacts an Upgrade reads and updates in place.
+  The `upgrade-deep` offline eval case proves it: Suite bytes unchanged,
+  the committed all-green report reproduced against a fresh Export derived
+  from the Collection fixture, freed-own-copies availability verified, and
+  the Upgrade contract pinned in the build skill. (#56)
