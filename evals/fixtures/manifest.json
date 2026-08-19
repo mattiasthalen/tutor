@@ -44,6 +44,11 @@
       "deck": null,
       "pool": "collections/synthetic-standard-pool.csv"
     },
+    "briefs/casual60-kitchen-stampede.txt": {
+      "format": "casual 60",
+      "deck": "decks/kitchen-stampede.txt",
+      "pool": "collections/synthetic-standard-pool.csv"
+    },
     "briefs/archenemy-bolas-villain.txt": {
       "format": "commander",
       "deck": null,
@@ -52,9 +57,18 @@
   },
   "clean_decks": [
     "decks/sunlit-whiskers-pack.txt",
-    "decks/tatyova-landfall.txt"
+    "decks/tatyova-landfall.txt",
+    "decks/kitchen-stampede.txt"
   ],
   "planted_flaws": {
+    "decks/ember-stampede-flawed.txt": [
+      {
+        "id": "standard-illegal-card",
+        "class": "legality",
+        "cards": ["Brotherhood's End"],
+        "violates": "every card is legal in standard per the Oracle's legalities (Brotherhood's End is not_legal in Standard)"
+      }
+    ],
     "decks/sunlit-whiskers-pack-flawed.txt": [
       {
         "id": "kitchen20-second-rare",

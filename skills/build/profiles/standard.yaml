@@ -1,0 +1,107 @@
+# Standard — thin sanctioned 60-card Format profile (spec #46, issue #58).
+# A Format is data, never code (ADR 0005): this file is the Casual 60 profile
+# plus exactly one thing — the banlist parameter naming which Oracle
+# legalities key the legality.banlist Check reads per card. No hand-maintained
+# banlist exists anywhere: rotation and bans arrive by regenerating the
+# Oracle (/tutor:oracle), never by editing this file.
+#
+# The four 60-card Formats — Casual 60, Standard, Modern, Pioneer — are equal
+# citizens sharing one 60-card game: same targets, same quotas, same Power
+# ladder, same review standards, kept byte-identical across the four files by
+# test (tests/test_sixty_card_formats.py).
+
+format: standard
+display_name: Standard
+
+profile:
+  # Deck-construction rules and check targets. Only a Brief may override a
+  # target — never silently: every override lands in the Suite under a
+  # "brief:" provenance comment.
+  deck_size: 60
+  copy_limit_nonland: 4
+  lands_min: 20
+  lands_max: 26
+  curve_avg_max: 3.0
+  early_nonland_cmc2_min: 12
+  # Consistency target, derived from the land window above so both checks can
+  # green at once: exact hypergeometric P(>=2 lands in a 7-card hand | N=60,
+  # K=20) = 0.7530, rounded DOWN to two decimals so the boundary land count
+  # itself satisfies it. P rises with the land count (K=26 gives 0.8955), so
+  # lands_min is the binding case and the whole window [20, 26] clears 0.75.
+  p_2plus_lands_in_7_min: 0.75
+  # Banlist parameter: which Oracle legalities key the legality.banlist Check
+  # reads per card — the whole of this Format's sanctioned legality. Scryfall
+  # legality data is informational only.
+  banlist_key: standard
+
+quotas:
+  # Default Role quotas over the global Role vocabulary (CONTEXT.md: ramp,
+  # draw, removal, wipe, wincon, land, theme/other). A Brief ask ("at least
+  # 8 removal cards") overrides or adds a line; land is the lands_min/lands_max
+  # target, not a quota. Sixty-card counts: a deck sees a third of itself by
+  # turn four, so fewer slots carry each job than in a hundred-card deck.
+  draw: 4
+  removal: 6
+  wincon: 2
+
+power_ladder:
+  # How the 60-card Formats read the shared 1-5 Power ladder (CONTEXT.md) —
+  # judgment data for Build's picks and Review's Power-fit call, never a
+  # Check. One shared reading across the four 60-card profiles, byte-identical
+  # by test. An unstated power: line defaults to 2 downstream.
+  1: Jank - pet cards and shower thoughts; winning is a pleasant accident.
+  2: Kitchen table - a coherent plan and an honest curve, no tuning pressure.
+  3: Focused - a tuned plan with real consistency; holds its own at store level.
+  4: Optimized - meta-aware card quality, tight curve, disciplined mulligans.
+  5: Competitive - tournament-shaped; every slot argued against the field.
+
+role_guidance:
+  # Judgment-flavored list (ADR 0005): how the 60-card Formats read each
+  # global Role when Build tags a card. Tagging is judgment recorded once per
+  # card in the Suite's roles: section; counting the tags is mechanical. A
+  # card may carry several Roles and counts toward each.
+  ramp: Accelerates mana - dorks, rocks, cost reducers; rarer here than in Commander.
+  draw: Refills the hand - cantrips count, but cheap repeatable engines count more.
+  removal: Answers a threat - targeted damage, destruction, exile, bounce, fights.
+  wipe: Resets the board - mass destruction or mass bounce.
+  wincon: Closes the game - the threats and reach the Deck actually wins through.
+  land: Any card with the Land type.
+  theme: Advances the Brief's named theme; other covers honest glue.
+
+review_standards:
+  # Per-Format Standards-axis judgment (ADR 0006): the one review-standards
+  # list all four 60-card Formats share, kept byte-identical across the four
+  # profiles by test — equal citizens, one craft bar. The review skill applies
+  # these on top of its format-agnostic Smell baseline; an entry here sharing
+  # a baseline Smell's name overrides that Smell's reading — the profile
+  # overrides the baseline. Data, never code (ADR 0005): judgment-flavored
+  # guidance the Standards pass reads, like role_guidance, never a predicate.
+  playset discipline: Sixty cards see a third of the deck by turn four - a piece the plan genuinely leans on wants its full four copies; a spread of one-ofs is a hundred-card habit, not a sixty-card deck.
+  interaction mismatch: One opponent, twenty life, no politics - answers must be cheap enough to cast on curve and aimed at what this matchup actually presents; a clunky answer is a skipped turn.
+  top-end restraint: A twenty-life game is often decided before the fifth land - a card above four mana must end the game or stop it ending; grandeur is a hundred-card luxury.
+
+checks:
+  # Check templates whose ids resolve to the runner's fixed predicates, in
+  # report order. generate_suite.py inserts quota Checks and mechanical Brief
+  # Checks before the consistency Check, and drops the color identity Check
+  # when neither the Brief nor a Centerpiece declares an identity.
+  - id: legality.size
+    text: Deck has exactly {deck_size} cards.
+  - id: legality.singleton
+    text: No nonland card appears more than {copy_limit_nonland} times.
+  - id: legality.color_identity
+    text: Every card stays inside the Brief's declared identity ({color_identity}).
+  - id: legality.banlist
+    text: Every card is legal in {banlist_key} per the Oracle.
+  - id: legality.land_count
+    text: Between {lands_min} and {lands_max} lands.
+  - id: availability.in_collection
+    text: Every card (at its count) exists in the Collection.
+  - id: manabase.color_coverage
+    text: Lands can produce every color the spells ask for.
+  - id: curve.average
+    text: Average nonland mana value is at most {curve_avg_max}.
+  - id: curve.early_plays
+    text: At least {early_nonland_cmc2_min} nonland cards at mana value 2 or less.
+  - id: consistency.opening_lands
+    text: P(at least 2 lands in a 7-card opening hand) is at least {p_2plus_lands_in_7_min}.

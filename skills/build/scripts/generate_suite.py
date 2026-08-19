@@ -171,6 +171,8 @@ def load_oracle(path):
 
 NAMED_IDENTITIES = {
     "white": "W", "blue": "U", "black": "B", "red": "R", "green": "G",
+    "mono-white": "W", "mono-blue": "U", "mono-black": "B", "mono-red": "R",
+    "mono-green": "G",
     "colorless": "",
     "azorius": "WU", "dimir": "UB", "rakdos": "BR", "gruul": "RG",
     "selesnya": "GW", "orzhov": "WB", "izzet": "UR", "golgari": "BG",

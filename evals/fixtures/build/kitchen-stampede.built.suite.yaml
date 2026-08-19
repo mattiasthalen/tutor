@@ -1,0 +1,79 @@
+# Suite Block — generated at Build start from the Brief and the Format profile,
+# before any card is picked (ADR 0005). Data only: targets are snapshotted,
+# judgment lands as data, the fixed runner interprets. Re-running the Suite
+# (including at Upgrade) reuses this file as-is; only a changed Brief
+# regenerates it.
+
+suite: Kitchen Stampede
+format: Casual 60
+generated: 2026-08-18
+brief: casual 60 — power 2
+
+profile:
+  # Format-profile targets snapshotted at generation. Lines under a "brief:"
+  # comment were set or overridden by the Brief — the only voice allowed to.
+  deck_size: 60
+  copy_limit_nonland: 4
+  lands_min: 20
+  lands_max: 26
+  curve_avg_max: 3.0
+  early_nonland_cmc2_min: 12
+  p_2plus_lands_in_7_min: 0.75
+  # brief: identity: mono-red
+  color_identity: [R]
+
+quotas:
+  # Role quotas over the global Role vocabulary. One Check per line.
+  draw: 4
+  removal: 6
+  wincon: 2
+
+constraints:
+  # Mechanical Brief constraints (judgment-free), one Check each.
+  # default: no donor lines — every deck-row copy stays committed
+  donors: []
+
+roles:
+  # Card -> Role tags: judgment recorded once per card as Build tags it.
+  # Empty until the Build picks and tags its first card.
+  Blacksmith's Talent: [other]
+  Blooming Blast: [removal]
+  Brazen Collector: [wincon]
+  Coruscation Mage: [wincon]
+  Emberheart Challenger: [wincon]
+  Hired Claw: [wincon]
+  Might of the Meek: [other]
+  Playful Shove: [removal, draw]
+  Rabid Gnaw: [removal]
+  Raccoon Rallier: [other]
+  Sazacap's Brew: [draw]
+  War Squeak: [other]
+  Mountain: [land]
+
+checks:
+  # The Suite: every id resolves to a fixed predicate in the runner (or a
+  # walkable sentence when no sandbox exists); every parameter lives above.
+  - id: legality.size
+    text: Deck has exactly {deck_size} cards.
+  - id: legality.singleton
+    text: No nonland card appears more than {copy_limit_nonland} times.
+  - id: legality.color_identity
+    text: Every card stays inside the Brief's declared identity ({color_identity}).
+  - id: legality.land_count
+    text: Between {lands_min} and {lands_max} lands.
+  - id: availability.in_collection
+    text: Every card (at its count) exists in the Collection.
+  - id: manabase.color_coverage
+    text: Lands can produce every color the spells ask for.
+  - id: curve.average
+    text: Average nonland mana value is at most {curve_avg_max}.
+  - id: curve.early_plays
+    text: At least {early_nonland_cmc2_min} nonland cards at mana value 2 or less.
+  - id: quota.draw
+    text: At least {quotas.draw} cards tagged draw.
+  - id: quota.removal
+    text: At least {quotas.removal} cards tagged removal.
+  - id: quota.wincon
+    text: At least {quotas.wincon} cards tagged wincon.
+  - id: consistency.opening_lands
+    text: P(at least 2 lands in a 7-card opening hand) is at least {p_2plus_lands_in_7_min}.

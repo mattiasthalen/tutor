@@ -1,0 +1,4 @@
+name: Kitchen Stampede
+format: casual 60
+identity: mono-red
+notes: the Standard pool played at the kitchen table — mouse and raccoon beatdown, cheap tricks, no rules lawyer in sight

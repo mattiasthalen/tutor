@@ -239,8 +239,11 @@ def run_checks(suite, deck_cards, oracle, collection, commitments=None,
         check("legality.size", total == p["deck_size"], f"{total} cards, need exactly {p['deck_size']}")
 
     if "legality.singleton" in wanted:
-        dupes = sorted({n for n, c in nonland if sum(1 for m, _ in nonland if m == n) > p["copy_limit_nonland"]})
-        check("legality.singleton", not dupes, "no nonland above 1 copy" if not dupes else f"over copy limit: {', '.join(dupes)}")
+        # The copy limit is Suite data (issue #58): 1 in Commander, 4 in the
+        # 60-card Formats — same predicate, honest detail either way.
+        limit = p["copy_limit_nonland"]
+        dupes = sorted({n for n, c in nonland if sum(1 for m, _ in nonland if m == n) > limit})
+        check("legality.singleton", not dupes, f"no nonland above {limit} {'copy' if limit == 1 else 'copies'}" if not dupes else f"over copy limit: {', '.join(dupes)}")
 
     if "legality.mono_color" in wanted:
         colors = sorted({col for n, c in expand if c for col in c.get("colors", [])})
