@@ -105,7 +105,10 @@ class Casual60ProfileIsData(unittest.TestCase):
 
 def section_slice(text, name):
     """The raw lines of one top-level section, comments included — the byte
-    surface the four profiles must share where a section is shared."""
+    surface the four profiles must share where a section is shared. A
+    deliberate sibling of the harness's section_lines (evals/run_evals.py):
+    the same section walk over a stricter surface — grader independence,
+    never imported, kept in lockstep by hand. Edit them together."""
     lines = text.splitlines()
     out, inside = [], False
     for line in lines:
