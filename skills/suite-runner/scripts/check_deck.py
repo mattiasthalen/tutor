@@ -141,10 +141,22 @@ def load_oracle(path):
     return {c["name"]: c for c in records if "name" in c}
 
 def load_collection(path):
+    """Owned copies by card name from the Collection Export. Header-keyed,
+    UTF-8 with BOM tolerance, malformed rows skipped — the ingestion posture
+    of spec #46, mirroring the owned side of the build skill's availability.py
+    `load_pool` — kept in lockstep by hand, never imported, because skill
+    assets stay self-contained. Edit the two together."""
     counts = {}
-    with open(path, newline="") as f:
+    with open(path, newline="", encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
-            counts[row["Name"]] = counts.get(row["Name"], 0) + int(row.get("Quantity", 1))
+            name = (row.get("Name") or "").strip()
+            try:
+                quantity = int(row.get("Quantity", 1))
+            except (TypeError, ValueError):
+                continue
+            if not name:
+                continue
+            counts[name] = counts.get(name, 0) + quantity
     return counts
 
 def load_commitments(path):
@@ -152,21 +164,30 @@ def load_commitments(path):
     Type `deck` belong to the Deck named by Binder Name. Returns
     {card name: {deck name: copies}}; empty wherever the Export carries no
     binder columns. Read only when the Suite's constraints carry a donors
-    entry — the contention-aware availability Check (issue #54).
+    entry — the contention-aware availability Check (issue #54). Header-keyed,
+    UTF-8 with BOM tolerance, malformed rows skipped — the ingestion posture
+    of spec #46.
 
     A deliberate mirror of the build skill's availability.py `load_pool`
     committed-side reading — kept in lockstep by hand, never imported,
     because skill assets stay self-contained. Edit the two together."""
     committed = {}
-    with open(path, newline="") as f:
+    with open(path, newline="", encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
+            name = (row.get("Name") or "").strip()
+            try:
+                quantity = int(row.get("Quantity", 1))
+            except (TypeError, ValueError):
+                continue
+            if not name:
+                continue
             if (row.get("Binder Type") or "").strip() != "deck":
                 continue
             deck = (row.get("Binder Name") or "").strip()
             if not deck:
                 continue
-            decks = committed.setdefault(row["Name"], {})
-            decks[deck] = decks.get(deck, 0) + int(row.get("Quantity", 1))
+            decks = committed.setdefault(name, {})
+            decks[deck] = decks.get(deck, 0) + quantity
     return committed
 
 def is_land(card):
