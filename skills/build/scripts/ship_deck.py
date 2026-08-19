@@ -82,6 +82,34 @@ FINISH_RANK = {"normal": 0, "": 0, "foil": 1, "etched": 2}
 PIN = re.compile(r"^(\d+)\s+(.+?)\s+\(([A-Z0-9]{2,5})\)\s+(\S+)$")
 LUMP = re.compile(r"^(\d+)\s+([^(]+)$")
 
+
+def read_card_line(line, known_names):
+    """One card line through the deck-line grammar — the single walk shared
+    by parse_deck and load_table_mates. Returns (qty, name, comment, pin),
+    pin being the (SET, number) pair of a pinned line and None otherwise, or
+    None for a line the grammar cannot read (the caller decides whether that
+    refuses or is tolerated). Raw-first order: PIN tries the whole line
+    before comment-stripping so multi-faced names carrying " // " re-anchor;
+    a bare line's whole remainder wins when it names a known card, otherwise
+    the trailing " // " reads as an inline comment."""
+    stripped, comment = line, None
+    if " // " in line:
+        head, _, tail = line.rpartition(" // ")
+        stripped, comment = head.strip(), tail.strip()
+    m = PIN.match(line)
+    if m:
+        return int(m.group(1)), m.group(2).strip(), None, (m.group(3), m.group(4))
+    m = PIN.match(stripped)
+    if m:
+        return int(m.group(1)), m.group(2).strip(), comment, (m.group(3), m.group(4))
+    bare = LUMP.match(line)
+    if bare and bare.group(2).strip() in known_names:
+        return int(bare.group(1)), bare.group(2).strip(), None, None
+    bare = LUMP.match(stripped)
+    if bare:
+        return int(bare.group(1)), bare.group(2).strip(), comment, None
+    return None
+
 # The WotC Fan Content Policy short form (NOTICE, spec #46), carried as a
 # ManaBox-safe comment line on every generated deck artifact.
 FOOTER = ("// tutor is unofficial Fan Content permitted under the Fan Content "
@@ -171,28 +199,12 @@ def parse_deck(text, known_names):
             elif title is None:
                 title = head
             continue
-        stripped, comment = line, None
-        if " // " in line:
-            head, _, tail = line.rpartition(" // ")
-            stripped, comment = head.strip(), tail.strip()
-        m = PIN.match(line)
-        if m:
-            qty, name, comment = int(m.group(1)), m.group(2).strip(), None
-        else:
-            m = PIN.match(stripped)
-            if m:
-                qty, name = int(m.group(1)), m.group(2).strip()
-            else:
-                bare = LUMP.match(line)
-                if bare and bare.group(2).strip() in known_names:
-                    qty, name, comment = int(bare.group(1)), bare.group(2).strip(), None
-                else:
-                    bare = LUMP.match(stripped)
-                    if not bare:
-                        refuse(f"unreadable Deck line: {raw.strip()!r} — a card line is "
-                               "'<qty> <name>' with an optional '(SET) number' pin and "
-                               "one optional trailing '// comment'")
-                    qty, name = int(bare.group(1)), bare.group(2).strip()
+        entry = read_card_line(line, known_names)
+        if entry is None:
+            refuse(f"unreadable Deck line: {raw.strip()!r} — a card line is "
+                   "'<qty> <name>' with an optional '(SET) number' pin and "
+                   "one optional trailing '// comment'")
+        qty, name, comment, _pin = entry
         boards.setdefault(board or "Mainboard", []).append((qty, name, comment))
     if title is None:
         refuse("the Deck Block has no '// <name>' title line — nothing to ship")
@@ -229,24 +241,16 @@ def load_table_mates(paths, printings):
                 continue
             if board == "Maybeboard":   # wishlist: never a physical take
                 continue
-            stripped = line.rsplit(" // ", 1)[0].strip() if " // " in line else line
-            m = PIN.match(line) or PIN.match(stripped)
-            pin = None
-            if m:
-                qty, name = int(m.group(1)), m.group(2).strip()
-                pin = (m.group(3), m.group(4))
-            else:
-                # A bare take — a lumped basic, or an unpinned line from a
-                # mate mid-build — still holds physical copies: subtract it
-                # name-level, the printing left to the fancier-first order.
-                bare = LUMP.match(line)
-                if bare and bare.group(2).strip() in printings:
-                    qty, name = int(bare.group(1)), bare.group(2).strip()
-                else:
-                    bare = LUMP.match(stripped)
-                    if not bare:
-                        continue
-                    qty, name = int(bare.group(1)), bare.group(2).strip()
+            # The one shared grammar walk (read_card_line, as parse_deck): a
+            # pinned take matches its printing exactly; a bare take — a
+            # lumped basic, or an unpinned line from a mate mid-build —
+            # still holds physical copies, the printing left to the
+            # fancier-first order. An unreadable line is tolerated, not
+            # refused: a mate's Block is input evidence, not this run's Deck.
+            entry = read_card_line(line, printings)
+            if entry is None:
+                continue
+            qty, name, _comment, pin = entry
             rows = printings.get(name, [])
             order = sorted(
                 range(len(rows)),

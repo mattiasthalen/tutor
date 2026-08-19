@@ -86,7 +86,7 @@ Judge fidelity to the Brief's stated intent, line by line: the fuzzy asks (`note
 
 ## Table Review: the sitting as a whole
 
-After a Table's last Seat ships, the finished sitting gets one more review — judged whole, not deck by deck (each Deck already gets its own Review above). Gather the Table Brief, every Seat's shipped Deck Block, and the per-Deck Review Blocks where they exist. The declared-Power match is already a mechanical Check (`validate_brief.py --seat-brief`, run at brief time, every Seat's effective Power against the table's) — felt fairness is what is judged here.
+After a Table's last Seat ships, the finished sitting gets one more review — judged whole, not deck by deck (each Deck already gets its own Review above). Gather the Table Brief, every Seat's shipped Deck Block, and the per-Deck Review Blocks where they exist. The declared-Power match is already a mechanical check (`validate_brief.py --seat-brief`, run at brief time, every Seat's effective Power against the table's) — felt fairness is what is judged here.
 
 Fan out three parallel subagents, one per axis — the same sequential fallback applies — each returning exactly one JSON array of Table Findings and nothing else. A Table Finding is a `severity` (`blocker` or `note`), the `seats` (Seat deck names) and `cards` it names — findings name Seats and cards — the `problem`, and at most one suggestion (`swap` or `maybeboard`):
 
