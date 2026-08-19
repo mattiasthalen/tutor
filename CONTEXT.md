@@ -80,6 +80,10 @@ _Avoid_: beginner deck, starter deck
 A Kitchen 20 Deck seen as a Jumpstart-style half: any two Packs shuffle into a 40-card game. Combining well with other Packs is part of what makes a Kitchen 20 Deck good.
 _Avoid_: half-deck, booster, packet
 
+**Casual 60**:
+House Format for kitchen-table 60-card play: 60-card Decks, at most 4 copies of a nonland, no banlist. One of the four 60-card Formats — with sanctioned Standard, Modern, and Pioneer — sharing one review-standards list.
+_Avoid_: casual (unqualified), freeform
+
 **Check**:
 A deterministic pass/fail predicate over a Deck — same Deck, same card facts, same verdict, every run. Checks never judge taste; judgment belongs to Review.
 _Avoid_: test (tutor's own software tests), rule
