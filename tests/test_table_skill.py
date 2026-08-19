@@ -198,11 +198,10 @@ MINIMAL_SEAT_A = "name: A Deck\nformat: commander\npower: 4\n"
 MINIMAL_SEAT_B = "name: B Deck\nformat: commander\npower: 3\n"
 
 
-class TableSeatJoinAndCopyDown(unittest.TestCase):
-    """Acceptance: one brief conversation produces a Table Brief plus N
-    untouched per-Deck Briefs; table-level power, constraints, play variant,
-    and donors copy into each Seat's Brief, and every seat: deck name joins
-    that Brief's name: line."""
+class ValidatesTableWithSeats:
+    """Shared seam for the cross-Brief table checks: write a Table Brief and
+    its Seat Brief texts to a temp directory and run the validator over them
+    with --seat-brief."""
 
     def validate_table(self, table_text, seat_texts, *extra):
         with tempfile.TemporaryDirectory() as tmp:
@@ -215,6 +214,13 @@ class TableSeatJoinAndCopyDown(unittest.TestCase):
                 seat.write_text(text, encoding="utf-8")
                 args += ["--seat-brief", seat]
             return run_validator(*args, *extra)
+
+
+class TableSeatJoinAndCopyDown(ValidatesTableWithSeats, unittest.TestCase):
+    """Acceptance: one brief conversation produces a Table Brief plus N
+    untouched per-Deck Briefs; table-level power, constraints, play variant,
+    and donors copy into each Seat's Brief, and every seat: deck name joins
+    that Brief's name: line."""
 
     def test_fixture_table_with_its_seat_briefs_is_valid(self):
         result = run_validator(
@@ -311,11 +317,9 @@ class TableSeatJoinAndCopyDown(unittest.TestCase):
         self.assertIn("Table Brief", result.stdout)
 
 
-class DeclaredPowerMatchCheck(unittest.TestCase):
-    """Acceptance: declared-Power match is a mechanical Check — every Seat's
+class DeclaredPowerMatchCheck(ValidatesTableWithSeats, unittest.TestCase):
+    """Acceptance: declared-Power match is a mechanical check — every Seat's
     effective Power equals the table's unless its seat line overrides."""
-
-    validate_table = TableSeatJoinAndCopyDown.validate_table
 
     def test_fixture_table_power_match_is_green(self):
         # Villain overrides to 4 and its Brief declares 4; the hero seat
@@ -371,6 +375,8 @@ class DeclaredPowerMatchCheck(unittest.TestCase):
 # real owned cards from the realism Export. Corsair Captain and Alania are
 # the Collection's only copies; Giant Growth (FDN) 223 is one of two owned
 # printings; the Maybeboard entry is wishlist, never a physical take.
+# evals/run_evals.py carries the same probe block (VILLAIN_BLOCK_TEXT),
+# kept in lockstep by hand — edit them together.
 VILLAIN_BLOCK = """\
 // Bolas Villain
 
@@ -659,7 +665,7 @@ class TableReviewAssembler(unittest.TestCase):
 
 class TableSmokeEvalCase(SmokeGradingMixin, unittest.TestCase):
     """Acceptance: an eval covers Tables — a fixture Table Brief drives
-    sequential builds that respect contention, and the power-match Check
+    sequential builds that respect contention, and the power-match check
     goes red on a mismatched fixture. Live conversation, build, and Table
     Review quality stay soft, dev-time judged."""
 

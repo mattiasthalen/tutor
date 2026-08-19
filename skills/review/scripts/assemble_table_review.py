@@ -53,6 +53,16 @@ from assemble_review import (
 # The three Table Review axes, in Block order (spec #46, Tables).
 AXES = ("power spread", "play patterns", "contention fallout")
 
+# The four helpers below — validate_finding, load_findings, rest_summary,
+# render_axis — are deliberate mirrors of assemble_review.py's (same skill),
+# kept in lockstep by hand: validate_finding and rest_summary add the seats
+# key beside cards; load_findings and render_axis differ only by resolving
+# to the table-shaped validator and renderer defined here. They are not
+# parameterized and imported like the arithmetic above because the hook
+# would have to live in the Deck assembler, whose bytes are pinned. Edit the
+# two files together; the frozen side cannot carry its half of this note, so
+# this one stands for the pair.
+
 REQUIRED_KEYS = {"severity", "seats", "cards", "problem"}
 SUGGESTION_KEYS = {"swap", "maybeboard"}
 

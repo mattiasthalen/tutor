@@ -69,6 +69,20 @@ TABLE_CANONICAL_KEYS = [
 TABLE_REPEATABLE_KEYS = {"constraint", "donor", "seat"}
 PER_DECK_ONLY_KEYS = {"name", "centerpiece", "identity"}
 
+# Recognized-but-banned keys, each refused with the sentence that explains
+# itself: the Brief grammar has no budget: key, and the Table Brief is an
+# index that embeds no per-Deck keys.
+BRIEF_BANNED_KEYS = {
+    "budget": "no budget: key exists in the Brief grammar — tutor builds "
+              "only from the Collection; the Maybeboard is the valve",
+}
+TABLE_BANNED_KEYS = {
+    key: f"{key!r} is a per-Deck Brief key — the Table Brief is an index "
+         "that never embeds the per-Deck Briefs; it lives in the Seat's "
+         "own Brief"
+    for key in PER_DECK_ONLY_KEYS
+}
+
 # Power is the shared 1-5 ladder; free text may trail the number ("3,
 # battlecruiser feel") but the number is canonical. Absent defaults to 2
 # downstream, so an omitted power: line is valid.
@@ -120,6 +134,75 @@ def parse_seat(value):
     return role, deck, power, problems
 
 
+def parse_flat_lines(text, canonical, block, banned):
+    """The flat-line walk both Brief shapes share (parse_brief and
+    parse_table_brief): skip blank lines, demand ``key: value``, refuse the
+    recognized-but-banned keys with their own sentences, hold keys to the
+    canonical set, refuse empty values. Returns (numbered, problems) where
+    numbered is (line number, key, stripped value) in file order."""
+    numbered, problems = [], []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if not line.strip():
+            continue
+        key, sep, value = line.partition(":")
+        if not sep:
+            problems.append(f"line {number}: not a 'key: value' line: {line!r}")
+            continue
+        if key in banned:
+            problems.append(f"line {number}: {banned[key]}")
+            continue
+        if key not in canonical:
+            problems.append(
+                f"line {number}: {key!r} is not a canonical {block} key "
+                f"(canonical: {', '.join(canonical)})"
+            )
+            continue
+        if not value.strip():
+            problems.append(f"line {number}: {key!r} has an empty value")
+            continue
+        numbered.append((number, key, value.strip()))
+    return numbered, problems
+
+
+def is_kitchen20(entries):
+    """Kitchen 20 by the format: line — the Format that carries no Power
+    because the Format pins it (spec #46). Values are already stripped;
+    formats compare case-insensitively, as elsewhere."""
+    return any(k == "format" and v.lower() == "kitchen 20" for k, v in entries)
+
+
+def shared_entry_problems(entries, repeatable, format_reason):
+    """The entry checks both Brief shapes share: the required format: line,
+    non-repeatable keys appearing once, power: on the 1-5 ladder, and the
+    Kitchen-20 ban on power: lines. Table-only checks — the seat minimum,
+    duplicate Seats, seat overrides, donors naming Seats — stay in
+    parse_table_brief."""
+    problems = []
+    keys = [k for k, _ in entries]
+    if "format" not in keys:
+        problems.append(f"missing the required 'format:' line — {format_reason}")
+    for key in dict.fromkeys(keys):
+        if key not in repeatable and keys.count(key) > 1:
+            problems.append(
+                f"{key!r} repeats {keys.count(key)} times — only "
+                f"{sorted(repeatable)} are repeatable"
+            )
+    for key, value in entries:
+        if key == "power" and not POWER_VALUE.match(value):
+            problems.append(
+                f"power: {value!r} — Power is a 1-5 number (Commander reads it "
+                "as the official Bracket); free text may trail the number"
+            )
+    if is_kitchen20(entries):
+        for key, value in entries:
+            if key == "power":
+                problems.append(
+                    f"power: {value!r} — Kitchen 20 carries no Power (the "
+                    "Format pins it); drop the power: line"
+                )
+    return problems
+
+
 def parse_table_brief(text):
     """Parse Table Brief Block text; return (entries, seats, problems).
 
@@ -128,47 +211,18 @@ def parse_table_brief(text):
     priority; problems are human-readable strings, empty when the Block is
     grammatically valid.
     """
-    entries, seats, problems = [], [], []
-    for number, line in enumerate(text.splitlines(), start=1):
-        if not line.strip():
-            continue
-        key, sep, value = line.partition(":")
-        if not sep:
-            problems.append(f"line {number}: not a 'key: value' line: {line!r}")
-            continue
-        if key in PER_DECK_ONLY_KEYS:
-            problems.append(
-                f"line {number}: {key!r} is a per-Deck Brief key — the Table "
-                "Brief is an index that never embeds the per-Deck Briefs; "
-                "it lives in the Seat's own Brief"
-            )
-            continue
-        if key not in TABLE_CANONICAL_KEYS:
-            problems.append(
-                f"line {number}: {key!r} is not a canonical Table Brief key "
-                f"(canonical: {', '.join(TABLE_CANONICAL_KEYS)})"
-            )
-            continue
-        if not value.strip():
-            problems.append(f"line {number}: {key!r} has an empty value")
-            continue
-        entries.append((key, value.strip()))
+    numbered, problems = parse_flat_lines(
+        text, TABLE_CANONICAL_KEYS, "Table Brief", TABLE_BANNED_KEYS)
+    entries = [(key, value) for _number, key, value in numbered]
+    seats = []
+    for number, key, value in numbered:
         if key == "seat":
-            role, deck, power, seat_problems = parse_seat(value.strip())
+            role, deck, power, seat_problems = parse_seat(value)
             problems += [f"line {number}: seat: {p}" for p in seat_problems]
             seats.append((role, deck, power))
 
-    keys = [k for k, _ in entries]
-    if "format" not in keys:
-        problems.append(
-            "missing the required 'format:' line — one Format per Table"
-        )
-    for key in dict.fromkeys(keys):
-        if key not in TABLE_REPEATABLE_KEYS and keys.count(key) > 1:
-            problems.append(
-                f"{key!r} repeats {keys.count(key)} times — only "
-                f"{sorted(TABLE_REPEATABLE_KEYS)} are repeatable"
-            )
+    problems += shared_entry_problems(entries, TABLE_REPEATABLE_KEYS,
+                                      "one Format per Table")
     if len(seats) < 2:
         problems.append(
             f"{len(seats)} seat: line{'s' if len(seats) != 1 else ''} — a "
@@ -182,21 +236,9 @@ def parse_table_brief(text):
                 "sit twice at the same sitting"
             )
         seen.add(deck)
-    for key, value in entries:
-        if key == "power" and not POWER_VALUE.match(value):
-            problems.append(
-                f"power: {value!r} — Power is a 1-5 number (Commander reads it "
-                "as the official Bracket); free text may trail the number"
-            )
-    # Kitchen 20 carries no Power — the Format pins it (spec #46) — at the
-    # table line and on every seat override alike.
-    if any(k == "format" and v.lower() == "kitchen 20" for k, v in entries):
-        for key, value in entries:
-            if key == "power":
-                problems.append(
-                    f"power: {value!r} — Kitchen 20 carries no Power (the "
-                    "Format pins it); drop the power: line"
-                )
+    # Kitchen 20 carries no Power on seat overrides either — the shared
+    # checks above already refused the table-level power: lines.
+    if is_kitchen20(entries):
         for _role, deck, power in seats:
             if power is not None:
                 problems.append(
@@ -219,55 +261,11 @@ def parse_brief(text):
     entries are (key, value) in file order; problems are human-readable
     strings, empty when the Block is grammatically valid.
     """
-    entries, problems = [], []
-    for number, line in enumerate(text.splitlines(), start=1):
-        if not line.strip():
-            continue
-        key, sep, value = line.partition(":")
-        if not sep:
-            problems.append(f"line {number}: not a 'key: value' line: {line!r}")
-            continue
-        if key == "budget":
-            problems.append(
-                f"line {number}: no budget: key exists in the Brief grammar — "
-                "tutor builds only from the Collection; the Maybeboard is the valve"
-            )
-            continue
-        if key not in CANONICAL_KEYS:
-            problems.append(
-                f"line {number}: {key!r} is not a canonical Brief key "
-                f"(canonical: {', '.join(CANONICAL_KEYS)})"
-            )
-            continue
-        if not value.strip():
-            problems.append(f"line {number}: {key!r} has an empty value")
-            continue
-        entries.append((key, value.strip()))
-
-    keys = [k for k, _ in entries]
-    if "format" not in keys:
-        problems.append("missing the required 'format:' line — the only required key")
-    for key in dict.fromkeys(keys):
-        if key not in REPEATABLE_KEYS and keys.count(key) > 1:
-            problems.append(
-                f"{key!r} repeats {keys.count(key)} times — only "
-                f"{sorted(REPEATABLE_KEYS)} are repeatable"
-            )
-    for key, value in entries:
-        if key == "power" and not POWER_VALUE.match(value):
-            problems.append(
-                f"power: {value!r} — Power is a 1-5 number (Commander reads it "
-                "as the official Bracket); free text may trail the number"
-            )
-    # Kitchen 20 carries no Power — the Format pins it (spec #46). Values are
-    # already stripped; formats compare case-insensitively, as elsewhere.
-    if any(k == "format" and v.lower() == "kitchen 20" for k, v in entries):
-        for key, value in entries:
-            if key == "power":
-                problems.append(
-                    f"power: {value!r} — Kitchen 20 carries no Power (the "
-                    "Format pins it); drop the power: line"
-                )
+    numbered, problems = parse_flat_lines(
+        text, CANONICAL_KEYS, "Brief", BRIEF_BANNED_KEYS)
+    entries = [(key, value) for _number, key, value in numbered]
+    problems += shared_entry_problems(entries, REPEATABLE_KEYS,
+                                      "the only required key")
     return entries, problems
 
 

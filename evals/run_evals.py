@@ -3001,7 +3001,7 @@ EXPECTATION_CHECKS = {
         check_table_brief_grammar,
     "One brief conversation's artifacts hold together: every seat: deck name joins its per-Deck Brief's name: line, each Seat's Brief is an untouched valid Brief on its own, and the table-level power, constraints, play variant, and donors are copied into every Seat's Brief.":
         check_table_artifacts_hold_together,
-    "The declared-Power match is a mechanical Check: every Seat's effective Power equals the table's unless its seat line overrides — green over the fixture Table with its Seat Briefs, red over the mismatched fixture naming the Seat.":
+    "The declared-Power match is a mechanical check: every Seat's effective Power equals the table's unless its seat line overrides — green over the fixture Table with its Seat Briefs, red over the mismatched fixture naming the Seat.":
         check_table_power_match,
     "Kitchen 20 Seats carry no Power: a Kitchen 20 Table Brief carrying a power: line or a seat-line override is refused.":
         check_kitchen20_table_power_ban,
